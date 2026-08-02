@@ -1,0 +1,4 @@
+consider I am building a AI integrated application and need to ensure that the architecture is scalable and maintainable. I want to focus on the integration of AI models into my existing system, ensuring that the data flow is efficient and that the models can be updated or replaced without significant downtime. Additionally, I want to implement a robust evaluation framework to assess the performance of the AI models in real-time, allowing for continuous improvement and adaptation to changing user needs.
+
+In Couchbase, we have used RAGAS for retrieval-augmented generation, which has been effective for our use cases. However, I am also considering other vector databases like pgvector and Pinecone to compare their performance and trade-offs in terms of latency, scalability, and ease of integration.
+
