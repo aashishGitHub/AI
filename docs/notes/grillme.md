@@ -5,5 +5,9 @@ design until reaching shared understanding, resolving each branch of the decisio
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
 If a question can be answered by exploring the codebase, explore the codebase instead.
 
+Always keep brutally simple and short sentences to quick iunderstand and move on
+Do not skip technical terms
+
+
 
 
