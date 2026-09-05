@@ -1,40 +1,29 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 
-# Learn more about building a configuration: https://promptfoo.dev/docs/configuration/guide
-
-description: "My eval"
-
-prompts:
-  - "Write a tweet about {{topic}}"
-  - "Write a concise, funny tweet about {{topic}}"
-  
+description: "Ask AI-style RAG answer eval — first golden set"
 
 providers:
-  - "openai:gpt-5-mini"
-  - "openai:gpt-5"
-  
+  - id: ollama:chat:llama3.2:1b
+
+prompts:
+  - file://prompts/answer.txt
+
+defaultTest:
+  options:
+    provider:
+      id: ollama:chat:qwen2.5:1.5b # judge — different model than the one under test
+      config:
+        passthrough:
+          format: json # force raw JSON output, no markdown fencing
 
 tests:
-  - vars:
-      topic: bananas
-
-  - vars:
-      topic: avocado toast
+  - description: "primary index creation (happy path)"
+    vars:
+      question: "How do I create a primary index in Capella?"
+      context: file://golden/contexts/primary-index.md
     assert:
-      # For more information on assertions, see https://promptfoo.dev/docs/configuration/expected-outputs
-
-      # Make sure output contains the word "avocado"
-      - type: icontains
-        value: avocado
-
-      # Prefer shorter outputs
-      - type: javascript
-        value: 1 / (output.length + 1)
-
-  - vars:
-      topic: new york city
-    assert:
-      # For more information on model-graded evals, see https://promptfoo.dev/docs/configuration/expected-outputs/model-graded
-      - type: llm-rubric
-        value: ensure that the output is funny
-
+      - type: contains # deterministic, runs first, cheap
+        value: "CREATE PRIMARY INDEX"
+      - type: g-eval # model-graded, judged by qwen2.5:1.5b
+        value: "Answer is faithful to the provided context and gives actionable steps."
+    metadata: { tags: [indexes, happy-path] }
