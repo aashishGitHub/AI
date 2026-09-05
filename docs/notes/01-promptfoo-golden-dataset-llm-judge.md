@@ -112,6 +112,51 @@ That ratio is the whole argument for putting cheap deterministic assertions firs
    for the literal substring, by design). `g-eval` scored it **1/1, "faithfully follows the context."** It did not.
    → A green suite is not evidence the judge works. This is exactly what "validate judge vs human labels" means.
 
+### Round 2 — adding a negative case, and measuring the judge
+Added a second golden case: a question the context **cannot** answer ("how do I create a vector index?"
+against a primary-index-only context). The prompt says *use ONLY the context*, so the correct behaviour is to
+decline. Three more findings, each from a real run.
+
+**3. `g-eval` is unusable with a local judge; `llm-rubric` is not.** Both are model-graded, but they extract
+the judge's JSON differently — traced in promptfoo's own source:
+
+| assertion | extraction | multi-line JSON |
+|---|---|---|
+| `g-eval` | `resp.output.match(/\{.+\}/g)` | ❌ JS `.` skips `\n`, so pretty-printed JSON never matches |
+| `llm-rubric` | `extractJsonObjects()` (brace parser) | ✅ fine |
+
+Ollama's `format: json` emits **pretty-printed** JSON (`'{\n  "score": 1,...'`). So `g-eval` failed
+intermittently with `LLM-proposed evaluation result is not in JSON format` — while the JSON was perfectly
+valid. It "passed" once only because the model happened to emit one line that run. → **use `llm-rubric` with
+local models.**
+
+**4. A negative string assertion only catches the wording you guessed.** First attempt was
+`not-icontains: "CREATE VECTOR INDEX"`. It passed — while the model invented
+`CREATE INDEX index_name ON bucket_name`. Different wording, same hallucination.
+→ Assert the **refusal is present** (`icontains-any: ["does not cover", "no information", …]`) instead of
+guessing which invention is absent. **There are few ways to decline and infinite ways to hallucinate; match
+the small set.** After the swap the case correctly went red on
+``CREATE VECTORS ON `bucket_name`.`vector_name`;``.
+
+**5. Judge agreement, measured: 1/2 = 50%.** Hand-label vs judge on the two cases:
+
+| case | human label | `llm-rubric` (qwen2.5:1.5b) | agree? |
+|---|---|---|---|
+| primary index (happy path) | pass | pass | ✅ |
+| vector index (unanswerable) | **fail** — invented syntax | **pass** | ❌ |
+
+On the grounding case the judge was wrong **three runs in a row**, each time asserting *"correctly states the
+provided context does not cover vector indexes"* about an answer that did the opposite. It did not merely
+score generously — **it fabricated its justification.**
+
+**The headline:** the `icontains-any` check — 8 strings, $0, instant — caught the hallucination that the
+LLM judge missed every single time. Cheap and dumb beat expensive and smart. That inverts the usual
+intuition, and it is why the assertion order in this suite is not just a cost optimisation.
+
+> **Status of the judge: NOT fit to gate.** 50% agreement on n=2 is a coin flip. Until agreement is measured
+> over a real batch and is high, `llm-rubric` here is a warning signal only. A green suite proved nothing —
+> it went green while passing a fabrication.
+
 ## Reference links (2025+, primary; title — url — why)
 - promptfoo getting started — `https://www.promptfoo.dev/docs/getting-started/` — harness setup + config schema.
 - promptfoo G-Eval — `https://www.promptfoo.dev/docs/configuration/expected-outputs/model-graded/g-eval/` — the model-graded assertion used here.

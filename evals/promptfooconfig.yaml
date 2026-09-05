@@ -17,6 +17,9 @@ defaultTest:
           format: json # force raw JSON output, no markdown fencing
 
 tests:
+  # ---------------------------------------------------------------------------
+  # 1. Happy path — the answer is in the context, so a good answer quotes it.
+  # ---------------------------------------------------------------------------
   - description: "primary index creation (happy path)"
     vars:
       question: "How do I create a primary index in Capella?"
@@ -24,6 +27,63 @@ tests:
     assert:
       - type: contains # deterministic, runs first, cheap
         value: "CREATE PRIMARY INDEX"
-      - type: g-eval # model-graded, judged by qwen2.5:1.5b
+
+      # Regression guard for an OBSERVED failure, not a hypothetical one:
+      # llama3.2:1b answered `CREATE PRIMARY INDEX ON `bucket_name`.*` — a
+      # wildcard form that appears nowhere in the context — and the g-eval
+      # judge scored it 1/1 "faithful". A cheap string rule catches the exact
+      # bug the expensive judge missed. This is what a regression test is.
+      - type: not-contains
+        value: "`.*`"
+
+      # llm-rubric, NOT g-eval. Both are model-graded, but they extract the
+      # judge's JSON differently, and that decides whether a local judge works:
+      #   g-eval      → resp.output.match(/\{.+\}/g)  — JS `.` skips newlines,
+      #                 so PRETTY-PRINTED JSON never matches.
+      #   llm-rubric  → extractJsonObjects()          — real brace parser, fine
+      #                 with multi-line JSON.
+      # Ollama's `format: json` emits pretty-printed JSON, so g-eval failed
+      # intermittently here — reported as "not in JSON format" even though the
+      # JSON was valid. Still UNCALIBRATED: treat the score as a warning.
+      - type: llm-rubric
         value: "Answer is faithful to the provided context and gives actionable steps."
     metadata: { tags: [indexes, happy-path] }
+
+  # ---------------------------------------------------------------------------
+  # 2. Negative case — the answer is NOT in the context.
+  #
+  # The prompt says "use ONLY the information in the provided context", so the
+  # correct behaviour is to decline. A suite made only of happy paths can never
+  # fail for the right reason; grounding is only proven by asking something
+  # unanswerable and watching the model NOT invent.
+  #
+  # Expect this to be red with a 1B model. A red case that reflects reality is
+  # more useful than a green one that does not.
+  # ---------------------------------------------------------------------------
+  - description: "unanswerable from context — must decline, not invent"
+    vars:
+      question: "How do I create a vector index in Capella?"
+      context: file://golden/contexts/primary-index.md
+    assert:
+      # FIRST ATTEMPT (kept as a lesson): `not-icontains: "CREATE VECTOR INDEX"`
+      # passed while the model happily invented `CREATE INDEX index_name ON
+      # bucket_name` for vector indexes. A negative string check only catches
+      # the exact wording you thought of; the model simply invented different
+      # wording. Absence of one bad string is not evidence of grounding.
+      #
+      # Better: assert the refusal is PRESENT. There are few ways to decline and
+      # infinite ways to hallucinate, so match the small set, not the big one.
+      - type: icontains-any
+        value:
+          - "does not cover"
+          - "does not contain"
+          - "not covered"
+          - "no information"
+          - "not mentioned"
+          - "cannot answer"
+          - "don't know"
+          - "does not provide"
+
+      - type: llm-rubric
+        value: "The answer states that the provided context does not cover vector indexes, and does not invent syntax or steps that are absent from the context."
+    metadata: { tags: [indexes, grounding, negative] }
