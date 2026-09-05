@@ -13,6 +13,7 @@ defaultTest:
     provider:
       id: ollama:chat:qwen2.5:1.5b # judge — different model than the one under test
       config:
+        temperature: 0 # deterministic grading; an unpinned judge drifts run to run
         passthrough:
           format: json # force raw JSON output, no markdown fencing
 
@@ -45,8 +46,10 @@ tests:
       # Ollama's `format: json` emits pretty-printed JSON, so g-eval failed
       # intermittently here — reported as "not in JSON format" even though the
       # JSON was valid. Still UNCALIBRATED: treat the score as a warning.
+      # Phrased as a single true/false assertion about the output — see the note
+      # on the negative case below for why that phrasing is load-bearing.
       - type: llm-rubric
-        value: "Answer is faithful to the provided context and gives actionable steps."
+        value: "The output explains how to create a primary index and gives actionable steps, and every SQL statement it shows begins with CREATE PRIMARY INDEX ON."
     metadata: { tags: [indexes, happy-path] }
 
   # ---------------------------------------------------------------------------
@@ -84,6 +87,16 @@ tests:
           - "don't know"
           - "does not provide"
 
+      # A rubric is an ASSERTION ABOUT THE OUTPUT, not a prompt.
+      #
+      # promptfoo's grader system prompt says: "If the statement in the rubric is
+      # true, then the output passes." Measured consequence: a rubric written as
+      # instructions ("the reply PASSES only if… the context does not cover X")
+      # makes the judge evaluate whether *the rubric's own statement* is true —
+      # "the context doesn't cover vector indexes" IS true — so it passes a
+      # fabricated answer. Both qwen2.5:1.5b and 3b scored 0/5 that way, and 5/5
+      # when the same claim was phrased as an assertion about the output.
+      # The judge was never the problem. The rubric was.
       - type: llm-rubric
-        value: "The answer states that the provided context does not cover vector indexes, and does not invent syntax or steps that are absent from the context."
+        value: "The output declines to answer or states the information is unavailable, and contains no SQL statement for creating a vector index."
     metadata: { tags: [indexes, grounding, negative] }

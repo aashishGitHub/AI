@@ -20,7 +20,7 @@ Legend: ✅ done · 🚧 in progress · ⬜ upcoming
 
 | Session | Week | Topic | Artifact | Gap | Distills into (Track A) | Notes |
 |---|---|---|---|---|---|---|
-| 01 | Wk1 D3 | promptfoo eval harness — first golden dataset + LLM-as-judge | [`evals/`](../../evals/) — 2 golden cases (happy + negative), `contains`/`icontains-any`/`llm-rubric`, on local Ollama | 1 | [`llm-eval-and-observability`](../../interviews/llm-eval-and-observability/) | ✅ [`01-*`](01-promptfoo-golden-dataset-llm-judge.md) — judge **uncalibrated**: 50% agreement (n=2), passed a hallucination 3× |
+| 01 | Wk1 D3 | promptfoo eval harness — first golden dataset + LLM-as-judge | [`evals/`](../../evals/) — 2 golden cases (happy + negative), `contains`/`icontains-any`/`llm-rubric`, on local Ollama | 1 | [`llm-eval-and-observability`](../../interviews/llm-eval-and-observability/) | ✅ [`01-*`](01-promptfoo-golden-dataset-llm-judge.md) — judge fixed: false PASS was a malformed **rubric**, not model size (1.5b & 3b both 5/5 vs 0/5 on prompt shape) |
 | 02 | Wk1 wknd | Agent Console — SSE token streaming behind a provider seam | [`fe-hands-on/`](../../fe-hands-on/) — real `llama3.2:1b` tokens over SSE behind a swappable `provider`, usage on the done frame, 6 Go tests | 3 | agentic-rag-and-mcp, llm-serving-and-model-lifecycle | ✅ [`02-*`](02-agent-console-sse-provider-seam.md) |
 | 03 | Wk2 | Hybrid RAG in Couchbase FTS | hybrid search returning ranked chunks | 2 | rag-hybrid-search | ⬜ |
 | 04 | Wk2 | pgvector vs Pinecone vs Couchbase — trade-off write-up + micro-benchmark | written comparison + latency/recall numbers | 2 | vector-databases | ⬜ |

@@ -138,24 +138,47 @@ guessing which invention is absent. **There are few ways to decline and infinite
 the small set.** After the swap the case correctly went red on
 ``CREATE VECTORS ON `bucket_name`.`vector_name`;``.
 
-**5. Judge agreement, measured: 1/2 = 50%.** Hand-label vs judge on the two cases:
+**5. The judge kept passing a fabrication — and it was my rubric's fault, not the model's.**
 
-| case | human label | `llm-rubric` (qwen2.5:1.5b) | agree? |
-|---|---|---|---|
-| primary index (happy path) | pass | pass | ✅ |
-| vector index (unanswerable) | **fail** — invented syntax | **pass** | ❌ |
+First conclusion (**wrong**, recorded here because the correction is the lesson): the judge passed an invented
+`CREATE VECTORS ON …` answer three runs running, each time claiming the reply *"correctly states the context
+does not cover vector indexes"*. I concluded a 1.5B model was too weak to judge and marked it unfit to gate.
 
-On the grounding case the judge was wrong **three runs in a row**, each time asserting *"correctly states the
-provided context does not cover vector indexes"* about an answer that did the opposite. It did not merely
-score generously — **it fabricated its justification.**
+Then I isolated the variable instead of assuming. Same frozen hallucination, same rubric, **two prompt shapes**,
+5 runs each, temperature 0:
 
-**The headline:** the `icontains-any` check — 8 strings, $0, instant — caught the hallucination that the
-LLM judge missed every single time. Cheap and dumb beat expensive and smart. That inverts the usual
-intuition, and it is why the assertion order in this suite is not just a cost optimisation.
+| judge | prompt shape | correct verdicts |
+|---|---|---|
+| qwen2.5:**1.5b** | plain single instruction | **5/5** ✅ |
+| qwen2.5:**1.5b** | promptfoo's `DEFAULT_GRADING_PROMPT` | **0/5** ❌ |
+| qwen2.5:**3b** | plain single instruction | **5/5** ✅ |
+| qwen2.5:**3b** | promptfoo's `DEFAULT_GRADING_PROMPT` | **0/5** ❌ |
 
-> **Status of the judge: NOT fit to gate.** 50% agreement on n=2 is a coin flip. Until agreement is measured
-> over a real batch and is high, `llm-rubric` here is a warning signal only. A green suite proved nothing —
-> it went green while passing a fabrication.
+**Model size is irrelevant: 10/10 vs 0/10, decided entirely by prompt shape.** Doubling the judge changed
+nothing, which is exactly what I would have "fixed" it with.
+
+The mechanism is in promptfoo's grader system prompt: *"**If the statement in the rubric is true**, then the
+output passes the test."* The judge is asked whether the **rubric statement** is true — not whether the output
+satisfies it. My rubric was written as *instructions* ("the reply PASSES only if… the context does not cover
+vector indexes"). The judge checked that statement, found *the context genuinely doesn't cover vector indexes*
+— true! — and passed the fabrication. Its reasoning was correct; it was answering a different question.
+
+> **A rubric is an assertion about the output, not a prompt.**
+> ❌ `"The reply PASSES only if it declines, because the context does not cover X"`
+> ✅ `"The output declines to answer or states the information is unavailable, and contains no SQL statement for creating a vector index."`
+
+After rewriting both rubrics as assertions: **judge agreement 2/2, stable across 3 consecutive runs.** The
+suite now reports 50% pass — correctly, because `llama3.2:1b` really does fabricate on the grounding case.
+Red for the right reason.
+
+**The headline, corrected.** The tempting lesson was "cheap string checks beat expensive LLM judges". The
+real one is narrower and more useful: **a model-graded assertion is only as good as the prompt your harness
+wraps around it, and that wrapper is invisible in your config.** Both layers still earn their place — the
+`icontains-any` check caught the hallucination the whole time and cost nothing, which is why it runs first.
+
+> **Status of the judge:** working and stable at n=2 — but n=2 is still not calibration. The honest claim is
+> "no disagreements yet across 3 runs on 2 cases", not "the judge is trustworthy". Real calibration needs a
+> hand-labelled batch, including cases designed to make the judge fail.
 
 ## Reference links (2025+, primary; title — url — why)
 - promptfoo getting started — `https://www.promptfoo.dev/docs/getting-started/` — harness setup + config schema.
