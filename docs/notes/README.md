@@ -20,8 +20,8 @@ Legend: ✅ done · 🚧 in progress · ⬜ upcoming
 
 | Session | Week | Topic | Artifact | Gap | Distills into (Track A) | Notes |
 |---|---|---|---|---|---|---|
-| 01 | Wk1 D3 | promptfoo eval harness — first golden dataset + LLM-as-judge | [`evals/`](../../evals/) — config + golden case + passing `contains`/`g-eval`, run on local Ollama | 1 | [`llm-eval-and-observability`](../../interviews/llm-eval-and-observability/) | ✅ [`01-*`](01-promptfoo-golden-dataset-llm-judge.md) — judge still **uncalibrated** (passed a hallucination) |
-| 02 | Wk1 wknd | Agent Console skeleton — Go/TS backend + Next.js shell + SSE token stream | [`fe-hands-on/`](../../fe-hands-on/) — real `llama3.2:1b` tokens over SSE behind a swappable `provider`, usage (tokens/latency) on the done frame | 3 | agentic-rag-and-mcp | ✅ built (skeleton Wk1 wknd, LLM wired after `01`) — note file not yet written |
+| 01 | Wk1 D3 | promptfoo eval harness — first golden dataset + LLM-as-judge | [`evals/`](../../evals/) — 2 golden cases (happy + negative), `contains`/`icontains-any`/`llm-rubric`, on local Ollama | 1 | [`llm-eval-and-observability`](../../interviews/llm-eval-and-observability/) | ✅ [`01-*`](01-promptfoo-golden-dataset-llm-judge.md) — judge **uncalibrated**: 50% agreement (n=2), passed a hallucination 3× |
+| 02 | Wk1 wknd | Agent Console — SSE token streaming behind a provider seam | [`fe-hands-on/`](../../fe-hands-on/) — real `llama3.2:1b` tokens over SSE behind a swappable `provider`, usage on the done frame, 6 Go tests | 3 | agentic-rag-and-mcp, llm-serving-and-model-lifecycle | ✅ [`02-*`](02-agent-console-sse-provider-seam.md) |
 | 03 | Wk2 | Hybrid RAG in Couchbase FTS | hybrid search returning ranked chunks | 2 | rag-hybrid-search | ⬜ |
 | 04 | Wk2 | pgvector vs Pinecone vs Couchbase — trade-off write-up + micro-benchmark | written comparison + latency/recall numbers | 2 | vector-databases | ⬜ |
 | 05 | Wk3 | MCP tool integration with an approval gate | 1 MCP tool callable behind a human approval | 3 | agentic-rag-and-mcp | ⬜ |
