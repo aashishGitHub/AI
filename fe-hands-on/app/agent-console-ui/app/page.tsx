@@ -1,187 +1,223 @@
 "use client";
-import { useEffect, useReducer, useRef, useState } from "react";
 
-// The wire contract from fe-hands-on/server.go. The UI codes against this
-// shape, not against any particular model — swapping Ollama for Bedrock on the
-// backend changes nothing in here.
-type Usage = {
-  promptTokens: number;
-  completionTokens: number;
-  latencyMs: number;
-};
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-type StreamEvent =
-  | { type: "token"; value: string }
-  | { type: "done"; usage?: Usage }
-  | { type: "error"; value: string };
-
-type Turn = {
-  prompt: string;
-  answer: string;
-  usage?: Usage;
-  error?: string;
-};
-
-type Action = StreamEvent | { type: "ask"; prompt: string };
-
-type State = {
-  status: "idle" | "streaming";
-  prompt: string; // prompt of the in-flight turn
-  current: string; // tokens accumulated so far for the in-flight turn
-  history: Turn[];
-};
-
-const initialState: State = {
-  status: "idle",
-  prompt: "",
-  current: "",
-  history: [],
-};
-
-// A reducer (rather than several useStates) because a streaming turn is a small
-// state machine: idle → streaming → idle, and every transition touches more than
-// one field at once. Keeping those moves in one place is what stops the "tokens
-// arrive after done" class of bug.
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case "ask":
-      return { status: "streaming", prompt: action.prompt, current: "", history: state.history };
-
-    case "token":
-      return { ...state, current: state.current + action.value };
-
-    case "done":
-      return {
-        status: "idle",
-        prompt: "",
-        current: "",
-        history: [
-          ...state.history,
-          { prompt: state.prompt, answer: state.current, usage: action.usage },
-        ],
-      };
-
-    case "error":
-      return {
-        status: "idle",
-        prompt: "",
-        current: "",
-        history: [
-          ...state.history,
-          { prompt: state.prompt, answer: state.current, error: action.value },
-        ],
-      };
-  }
-}
+import { streamChat, type Source } from "./lib/chat";
+import { initialState, reducer, toMessages, type Turn } from "./lib/reducer";
 
 export default function Home() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [input, setInput] = useState("");
-  const sourceRef = useRef<EventSource | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Close any open stream when the component unmounts, otherwise a navigation
-  // away leaves the connection (and the model generating) alive.
+  // Abort any in-flight request when the component goes away, so navigating
+  // off the page stops the model generating rather than leaking the stream.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Follow the answer as it streams. `block: "end"` avoids yanking the whole
+  // page when the transcript is short.
   useEffect(() => {
-    return () => sourceRef.current?.close();
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [state.turns, state.status]);
+
+  const run = useCallback(async (messages: ReturnType<typeof toMessages>) => {
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      for await (const event of streamChat(messages, controller.signal)) {
+        dispatch(event);
+      }
+    } catch (err) {
+      // An abort is a user action, not a failure — the reducer already
+      // recorded it, so don't overwrite that with an error banner.
+      if (controller.signal.aborted) return;
+      dispatch({
+        type: "error",
+        value: err instanceof Error ? err.message : "the stream failed",
+      });
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+    }
   }, []);
 
-  function ask(prompt: string) {
-    sourceRef.current?.close(); // supersede any in-flight turn
+  function ask(question: string) {
+    dispatch({ type: "ask", question });
+    void run([...toMessages(state.turns), { role: "user", content: question }]);
+  }
 
-    dispatch({ type: "ask", prompt });
+  function retry() {
+    const last = state.turns[state.turns.length - 1];
+    if (!last) return;
+    dispatch({ type: "retry" });
+    void run([...toMessages(state.turns.slice(0, -1)), { role: "user", content: last.question }]);
+  }
 
-    // EventSource is GET-only with no body, which is why the prompt travels as
-    // a query param. Moving to multi-turn history later means switching to
-    // POST + fetch/ReadableStream — the reducer above would not change.
-    const source = new EventSource(
-      `http://localhost:8080/stream?q=${encodeURIComponent(prompt)}`,
-    );
-    sourceRef.current = source;
-
-    source.onmessage = (e) => {
-      const event: StreamEvent = JSON.parse(e.data);
-      dispatch(event);
-
-      // The server closes the stream after "done", and EventSource would then
-      // auto-reconnect and replay the whole answer on a loop. Close it first.
-      if (event.type === "done" || event.type === "error") source.close();
-    };
-
-    source.onerror = () => {
-      dispatch({ type: "error", value: "Stream failed — is the Go server on :8080 running?" });
-      source.close();
-    };
+  function stop() {
+    abortRef.current?.abort();
+    dispatch({ type: "abort" });
   }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const prompt = input.trim();
-    if (!prompt || state.status === "streaming") return;
+    const question = input.trim();
+    if (!question || state.status === "streaming") return;
     setInput("");
-    ask(prompt);
+    ask(question);
   }
 
-  return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex w-full max-w-3xl flex-1 flex-col gap-4 px-6 py-16 sm:px-16">
-        <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Agent Console</h1>
+  const streaming = state.status === "streaming";
 
-        {state.history.length === 0 && state.status === "idle" && (
-          <p className="text-zinc-500">Ask something to start a stream.</p>
+  return (
+    <div className="flex min-h-screen flex-col bg-zinc-50 font-sans text-zinc-900 dark:bg-black dark:text-zinc-100">
+      <header className="border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
+        <h1 className="text-sm font-semibold">Agent Console</h1>
+        <p className="text-xs text-zinc-500">Grounded in the local documentation corpus</p>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+        {state.turns.length === 0 && (
+          <div className="text-sm text-zinc-500">
+            <p className="mb-2">Ask about the indexed documentation. Try:</p>
+            <ul className="list-inside list-disc space-y-1">
+              <li>How do I create a primary index in Capella?</li>
+              <li>What is the difference between a scope and a collection?</li>
+            </ul>
+          </div>
         )}
 
-        {state.history.map((turn, i) => (
-          <div key={i} className="flex flex-col gap-2">
-            <p className="self-end rounded-lg bg-zinc-200 px-4 py-2 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
-              {turn.prompt}
-            </p>
-
-            <div className="rounded-lg bg-white p-4 dark:bg-zinc-900">
-              <p className="whitespace-pre-wrap">{turn.answer}</p>
-
-              {turn.error && <p className="mt-2 text-sm text-red-600">{turn.error}</p>}
-
-              {/* Real cost/latency per turn — the seed of the observability
-                  dashboard. Surfacing it in the UI keeps the trade-off visible
-                  while iterating on prompts. */}
-              {turn.usage && (
-                <p className="mt-3 border-t border-zinc-200 pt-2 font-mono text-xs text-zinc-500 dark:border-zinc-800">
-                  {turn.usage.promptTokens} prompt + {turn.usage.completionTokens} completion tokens ·{" "}
-                  {turn.usage.latencyMs}ms
-                </p>
-              )}
-            </div>
-          </div>
+        {state.turns.map((turn, i) => (
+          <TurnView key={i} turn={turn} streaming={streaming && i === state.turns.length - 1} onRetry={retry} />
         ))}
 
-        {state.status === "streaming" && (
-          <div className="flex flex-col gap-2">
-            <p className="self-end rounded-lg bg-zinc-200 px-4 py-2 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100">
-              {state.prompt}
-            </p>
-            <p className="whitespace-pre-wrap rounded-lg bg-white p-4 dark:bg-zinc-900">
-              {state.current}
+        <div ref={bottomRef} />
+      </main>
+
+      <form
+        onSubmit={onSubmit}
+        className="sticky bottom-0 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur dark:border-zinc-800 dark:bg-black/90"
+      >
+        <div className="mx-auto flex w-full max-w-3xl gap-2 px-4 py-3 sm:px-6">
+          <label htmlFor="question" className="sr-only">
+            Your question
+          </label>
+          <input
+            id="question"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask the documentation…"
+            autoComplete="off"
+            disabled={streaming}
+            className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900"
+          />
+          {streaming ? (
+            // Stop is only reachable while streaming, which is the only time
+            // it means anything — and it aborts the request rather than just
+            // hiding the output.
+            <button
+              type="button"
+              onClick={stop}
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={input.trim() === ""}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
+            >
+              Send
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function TurnView({
+  turn,
+  streaming,
+  onRetry,
+}: {
+  turn: Turn;
+  streaming: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <article className="flex flex-col gap-3">
+      <p className="self-end rounded-2xl bg-zinc-200 px-4 py-2 text-sm dark:bg-zinc-800">{turn.question}</p>
+
+      {turn.sources.length > 0 && <Sources sources={turn.sources} />}
+
+      <div className="rounded-2xl bg-white p-4 dark:bg-zinc-900">
+        {turn.answer === "" && streaming ? (
+          <p className="text-sm text-zinc-500" role="status">
+            Searching the documentation…
+          </p>
+        ) : (
+          // The model emits Markdown — fenced code, lists, tables. Rendering it
+          // as plain text made every code block unreadable. react-markdown does
+          // not pass raw HTML through, so model output cannot inject markup.
+          <div className="prose-sm max-w-none [&_code]:rounded [&_code]:bg-zinc-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_h1]:mt-4 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-4 [&_h2]:text-sm [&_h2]:font-semibold [&_li]:my-0.5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-zinc-100 [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_table]:my-2 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:border-zinc-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-zinc-200 [&_th]:px-2 [&_th]:py-1 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 dark:[&_code]:bg-zinc-800 dark:[&_pre]:bg-zinc-950 dark:[&_td]:border-zinc-800 dark:[&_th]:border-zinc-800">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.answer}</ReactMarkdown>
+            {streaming && (
               <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-current align-middle" />
-            </p>
+            )}
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="sticky bottom-4 mt-auto flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask the agent…"
-            className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
-          />
-          <button
-            type="submit"
-            disabled={state.status === "streaming" || input.trim() === ""}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-white disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900"
-          >
-            {state.status === "streaming" ? "Streaming…" : "Send"}
-          </button>
-        </form>
-      </main>
-    </div>
+        {turn.aborted && <p className="mt-2 text-xs text-zinc-500">Stopped.</p>}
+
+        {turn.error && (
+          <div className="mt-3 flex items-center gap-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            <span className="flex-1">{turn.error}</span>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded border border-red-300 px-2 py-1 text-xs font-medium hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {turn.usage && (
+          // Cost and latency per turn, in the UI rather than only in a log —
+          // the trade-off stays visible while iterating on prompts.
+          <p className="mt-3 border-t border-zinc-200 pt-2 font-mono text-xs text-zinc-500 dark:border-zinc-800">
+            {turn.usage.promptTokens} prompt + {turn.usage.completionTokens} completion tokens ·{" "}
+            {turn.usage.latencyMs}ms
+          </p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function Sources({ sources }: { sources: Source[] }) {
+  return (
+    <details className="rounded-lg border border-zinc-200 bg-white text-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400">
+        {sources.length} source{sources.length === 1 ? "" : "s"} — the answer is grounded in these
+      </summary>
+      <ol className="space-y-2 border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
+        {sources.map((source, i) => (
+          <li key={source.id} className="text-xs">
+            {/* Numbered to match the [n] citations the model is told to use. */}
+            <span className="font-mono text-zinc-500">[{i + 1}]</span>{" "}
+            <span className="font-medium">{source.title}</span>{" "}
+            <span className="text-zinc-500">({source.docId})</span>
+            <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+              {source.text}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
