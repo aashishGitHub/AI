@@ -1,0 +1,2 @@
+# compiled binary (module name); `go build ./...` drops it here
+/agentconsole
