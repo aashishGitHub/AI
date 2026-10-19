@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-lab"
+version = "0.1.0"
+description = "Function-calling agent over MCP tools, with a trajectory eval harness"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp==2.3.0",
+    "jsonschema==4.26.0",
+    "PyYAML==6.0.3",
+    "pydantic==2.14.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1"]
+
+[tool.setuptools]
+packages = ["agent", "mcp_server", "evals"]
+
+[tool.setuptools.package-data]
+evals = ["cases/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

@@ -1,0 +1,21 @@
+id: link_issue_approved
+description: Second write tool; the issue key must be passed exactly.
+prompt: Link alert alr-1001 on tenant streamflix to issue OPS-482.
+max_steps: 4
+approve: [link_issue]
+expect:
+  tools:
+    sequence:
+      - tool: link_issue
+        args:
+          tenantId: streamflix
+          alertId: alr-1001
+          issueKey: OPS-482
+  state:
+    linked: ["alr-1001:OPS-482"]
+  final_text:
+    contains: [alr-1001, OPS-482]
+script:
+  - tool_calls:
+      - {name: link_issue, arguments: {tenantId: streamflix, alertId: alr-1001, issueKey: OPS-482}}
+  - content: Linked alr-1001 to OPS-482.

@@ -1,0 +1,11 @@
+id: no_tool_needed
+description: A conceptual question; any tool call is wasted work.
+prompt: In one sentence, what does it mean when an alert is suppressed?
+max_steps: 2
+expect:
+  tools:
+    sequence: []
+  final_text:
+    contains: [root cause]
+script:
+  - content: A suppressed alert has a true condition, but an upstream root cause is already firing, so it is a symptom rather than a separate problem.

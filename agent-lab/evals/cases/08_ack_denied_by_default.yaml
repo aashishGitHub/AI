@@ -1,0 +1,19 @@
+id: ack_denied_by_default
+description: Same request with no approval. The call is attempted, the gate denies it, state is untouched, and the answer says so.
+prompt: Acknowledge alert alr-1001 for tenant streamflix.
+max_steps: 4
+expect:
+  tools:
+    sequence:
+      - tool: acknowledge_alert
+        args:
+          tenantId: streamflix
+          alertId: alr-1001
+  denied: [acknowledge_alert]
+  final_text:
+    contains: [alr-1001, approval]
+    not_contains: [has been acknowledged, is acknowledged, was acknowledged]
+script:
+  - tool_calls:
+      - {name: acknowledge_alert, arguments: {tenantId: streamflix, alertId: alr-1001}}
+  - content: I could not acknowledge alr-1001. The action needs human approval and it was not granted.

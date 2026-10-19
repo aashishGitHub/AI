@@ -1,0 +1,12 @@
+id: ambiguous_tenant_asks
+description: No tenant given. The right move is to ask, not to guess a tenant id.
+prompt: Are there any active alerts right now?
+max_steps: 2
+expect:
+  tools:
+    sequence: []
+  final_text:
+    contains: [tenant]
+    regex: ['\?']
+script:
+  - content: Which tenant do you mean? Give me the tenant id, for example streamflix.

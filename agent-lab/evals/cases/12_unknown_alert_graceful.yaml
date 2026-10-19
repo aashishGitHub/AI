@@ -1,0 +1,18 @@
+id: unknown_alert_graceful
+description: The id does not exist; the tool reports found=false and the answer must say so rather than invent an explanation.
+prompt: Explain alert alr-9999 on tenant streamflix.
+max_steps: 4
+expect:
+  tools:
+    sequence:
+      - tool: explain_alert
+        args:
+          tenantId: streamflix
+          alertId: alr-9999
+  final_text:
+    contains: [alr-9999]
+    regex: ['not (an )?active|not found|could(n.t| not) find|does(n.t| not) exist']
+script:
+  - tool_calls:
+      - {name: explain_alert, arguments: {tenantId: streamflix, alertId: alr-9999}}
+  - content: alr-9999 is not an active alert of streamflix; it may be resolved or the id may be wrong.

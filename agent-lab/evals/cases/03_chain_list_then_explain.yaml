@@ -1,0 +1,23 @@
+id: chain_list_then_explain
+description: Two-step chain; the second call must use the firing root-cause alert id from the first result.
+prompt: What is the most important problem for tenant streamflix right now? Explain it.
+max_steps: 5
+expect:
+  tools:
+    sequence:
+      - tool: list_active_alerts
+        args: {tenantId: streamflix}
+      - tool: explain_alert
+        args:
+          tenantId: streamflix
+          alertId: alr-1001
+  final_text:
+    contains: [alr-1001, error rate]
+script:
+  - tool_calls:
+      - {name: list_active_alerts, arguments: {tenantId: streamflix}}
+  - tool_calls:
+      - {name: explain_alert, arguments: {tenantId: streamflix, alertId: alr-1001}}
+  - content: >-
+      The firing root cause is alr-1001 (CRITICAL): error rate above 5% in us-east-1 for 14 minutes.
+      alr-1002 (viewer drop) is suppressed by it.

@@ -1,0 +1,22 @@
+id: ack_approved
+description: Write tool, explicit user request, human approval granted by the case policy.
+prompt: Acknowledge alert alr-1001 for tenant streamflix.
+max_steps: 4
+approve: [acknowledge_alert]
+expect:
+  tools:
+    allowed: [list_active_alerts, explain_alert, acknowledge_alert]
+    required: [acknowledge_alert]
+    args:
+      acknowledge_alert:
+        tenantId: streamflix
+        alertId: alr-1001
+    optimal_calls: 1
+  state:
+    acknowledged: [alr-1001]
+  final_text:
+    contains: [alr-1001, acknowledged]
+script:
+  - tool_calls:
+      - {name: acknowledge_alert, arguments: {tenantId: streamflix, alertId: alr-1001}}
+  - content: Done. alr-1001 on streamflix is acknowledged.

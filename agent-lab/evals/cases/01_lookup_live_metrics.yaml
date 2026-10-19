@@ -1,0 +1,17 @@
+id: lookup_live_metrics
+description: Single read-only lookup; the tenant id is in the prompt.
+prompt: What is the current error rate for tenant streamflix?
+max_steps: 4
+expect:
+  tools:
+    sequence:
+      - tool: get_live_metrics
+        args: {tenantId: streamflix}
+  final_text:
+    contains: [streamflix, error rate]
+script:
+  - tool_calls:
+      - {name: get_live_metrics, arguments: {tenantId: streamflix}}
+  - content: >-
+      streamflix error rate right now: stranger-things in us-east-1 is 7.1% (60 samples),
+      the-crown in us-east-1 is 6.4% (only 4 samples, low confidence), the-crown in eu-west-1 is 0.4%.

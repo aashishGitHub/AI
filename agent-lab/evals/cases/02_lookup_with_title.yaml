@@ -1,0 +1,17 @@
+id: lookup_with_title
+description: Lookup that must pass the optional titleId argument.
+prompt: How many concurrent viewers does stranger-things have on tenant streamflix right now?
+max_steps: 4
+expect:
+  tools:
+    sequence:
+      - tool: get_live_metrics
+        args:
+          tenantId: streamflix
+          titleId: stranger-things
+  final_text:
+    regex: ['125,?400']
+script:
+  - tool_calls:
+      - {name: get_live_metrics, arguments: {tenantId: streamflix, titleId: stranger-things}}
+  - content: stranger-things has 125,400 concurrent viewers on streamflix in us-east-1.

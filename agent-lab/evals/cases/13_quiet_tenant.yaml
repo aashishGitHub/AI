@@ -1,0 +1,16 @@
+id: quiet_tenant
+description: Empty result must be reported as empty, not padded.
+prompt: Any active alerts for tenant northwind?
+max_steps: 4
+expect:
+  tools:
+    sequence:
+      - tool: list_active_alerts
+        args: {tenantId: northwind}
+  final_text:
+    contains: [northwind]
+    regex: ['\bno\b|\bnone\b|\b0\b|zero']
+script:
+  - tool_calls:
+      - {name: list_active_alerts, arguments: {tenantId: northwind}}
+  - content: northwind has no active alerts.

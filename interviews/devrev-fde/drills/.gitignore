@@ -1,0 +1,5 @@
+ts/node_modules/
+py/.venv/
+py/.pytest_cache/
+**/__pycache__/
+*.tsbuildinfo
