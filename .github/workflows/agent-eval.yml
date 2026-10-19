@@ -1,0 +1,26 @@
+# Deterministic agent suite: ScriptedLLM, no model, no network. Gating.
+# The live (Ollama) mode is report-only and is not run here.
+name: agent-eval
+
+on:
+  pull_request:
+    paths:
+      - "agent-lab/**"
+      - ".github/workflows/agent-eval.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deterministic:
+    name: pytest + golden trajectory suite (no model)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent-lab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest
+      - run: python -m evals deterministic

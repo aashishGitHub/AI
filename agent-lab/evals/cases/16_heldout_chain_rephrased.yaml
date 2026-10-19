@@ -1,0 +1,23 @@
+id: heldout_chain_rephrased
+description: >-
+  Held-out for chain_list_then_explain (written before any fix was measured). Same fixture, different phrasing.
+  After listing, the alert to explain is the firing root cause, not the suppressed symptom.
+prompt: Tenant streamflix looks unhealthy. Which alert matters most? Explain that one.
+max_steps: 5
+expect:
+  tools:
+    sequence:
+      - tool: list_active_alerts
+        args: {tenantId: streamflix}
+      - tool: explain_alert
+        args:
+          tenantId: streamflix
+          alertId: alr-1001
+  final_text:
+    contains: [alr-1001]
+script:
+  - tool_calls:
+      - {name: list_active_alerts, arguments: {tenantId: streamflix}}
+  - tool_calls:
+      - {name: explain_alert, arguments: {tenantId: streamflix, alertId: alr-1001}}
+  - content: alr-1001 (CRITICAL, error rate in us-east-1) matters most; alr-1002 is a symptom it suppresses.

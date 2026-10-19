@@ -12,10 +12,11 @@ from tests.helpers import READ_TOOL, WRITE_TOOL, FakeBackend, final_turn, new_au
 TOOLS = [READ_TOOL, WRITE_TOOL]
 
 
-def drive(llm, backend=None, approver=None, max_steps=5):
+def drive(llm, backend=None, approver=None, max_steps=5, prompt="hi", grounded_args=()):
     audit, stream = new_audit()
     gate = ApprovalGate(approver) if approver else ApprovalGate()
-    result = run(run_agent("hi", llm, ToolExecutor(backend or FakeBackend(), TOOLS, gate), TOOLS, audit, max_steps))
+    executor = ToolExecutor(backend or FakeBackend(), TOOLS, gate, grounded_args=grounded_args)
+    result = run(run_agent(prompt, llm, executor, TOOLS, audit, max_steps))
     events = [json.loads(line) for line in stream.getvalue().splitlines()]
     return result, events
 
@@ -142,3 +143,47 @@ def test_tool_error_result_from_the_server_reaches_the_model_prefixed():
     llm = scripted(tool_turn("get_thing", tenantId="globex"), final_turn("x"))
     drive(llm, FakeBackend(tool_error))
     assert llm.requests[1][0][-1].content == "error: unknown tenant 'globex'"
+
+
+def returns(content: str, is_error: bool = False):
+    async def handler(_name, _args):
+        return ToolOutput(content, is_error=is_error)
+
+    return FakeBackend(handler)
+
+
+def test_an_invented_tenant_is_refused_and_the_model_is_told_to_ask():
+    llm = scripted(tool_turn("get_thing", tenantId="streampulse"), final_turn("Which tenant do you mean?"))
+    backend = FakeBackend()
+    result, events = drive(llm, backend, prompt="Are there any active alerts right now?", grounded_args={"tenantId"})
+    assert backend.calls == []
+    assert result.tool_records[0].error_kind == "ungrounded_argument"
+    assert "ask the user" in llm.requests[1][0][-1].content
+    assert next(e for e in events if e["event"] == "tool_call")["executed"] is False
+
+
+def test_an_id_from_an_earlier_tool_result_is_allowed():
+    llm = scripted(tool_turn("get_thing", tenantId="t1"), tool_turn("change_thing", tenantId="t1", alertId="alr-7"),
+                   final_turn("done"))
+    backend = returns('{"firing": [{"alertId": "alr-7"}]}')
+    result, _ = drive(llm, backend, allow_tools("change_thing"), prompt="Fix tenant t1", grounded_args={"tenantId", "alertId"})
+    assert [r.error_kind for r in result.tool_records] == [None, None]
+    assert backend.calls[1] == ("change_thing", {"tenantId": "t1", "alertId": "alr-7"})
+
+
+def test_an_id_seen_only_in_an_error_result_is_not_grounded():
+    llm = scripted(tool_turn("get_thing", tenantId="t1"), tool_turn("change_thing", tenantId="t1", alertId="alr-9"),
+                   final_turn("x"))
+    backend = returns("unknown alert 'alr-9'", is_error=True)
+    result, _ = drive(llm, backend, allow_tools("change_thing"), prompt="tenant t1", grounded_args={"tenantId", "alertId"})
+    assert [r.error_kind for r in result.tool_records] == ["tool_error", "ungrounded_argument"]
+    assert len(backend.calls) == 1
+
+
+def test_a_call_cannot_be_grounded_by_a_result_from_the_same_turn():
+    same_turn = {"tool_calls": [{"name": "get_thing", "arguments": {"tenantId": "t1"}},
+                                {"name": "change_thing", "arguments": {"tenantId": "t1", "alertId": "alr-7"}}]}
+    backend = returns('{"alertId": "alr-7"}')
+    result, _ = drive(scripted(same_turn, final_turn("x")), backend, allow_tools("change_thing"), prompt="tenant t1",
+                      grounded_args={"tenantId", "alertId"})
+    assert [r.error_kind for r in result.tool_records] == [None, "ungrounded_argument"]

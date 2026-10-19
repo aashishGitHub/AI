@@ -68,8 +68,10 @@ async def run_agent(
         messages.append(reply)
         if not reply.tool_calls:
             return finish("final", step, final_text=reply.content)
+        # Error results are not evidence: they can echo the model's own guess back ("unknown tenant 'x'").
+        evidence = [prompt, *(r.content for r in records if not r.is_error)]
         for call in reply.tool_calls:
-            record = await executor.execute(call, step)
+            record = await executor.execute(call, step, evidence)
             records.append(record)
             audit.record(
                 "tool_call", step=step, tool_call_id=call.id, tool=call.name, arguments=call.arguments,

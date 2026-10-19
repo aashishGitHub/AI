@@ -1,0 +1,14 @@
+id: heldout_missing_tenant_alert_given
+description: >-
+  Held-out for ambiguous_tenant_asks (written before any fix was measured). The alert id is given but the tenant is
+  not; explain_alert needs both, so the right move is to ask for the tenant.
+prompt: Explain alert alr-1001 to me.
+max_steps: 2
+expect:
+  tools:
+    sequence: []
+  final_text:
+    contains: [tenant]
+    regex: ['\?']
+script:
+  - content: Which tenant is alr-1001 on? I need the tenant id to look it up.

@@ -1,0 +1,25 @@
+id: heldout_chain_new_tenant
+description: >-
+  Held-out for chain_list_then_explain (written before any fix was measured). Different tenant, different ids, and
+  two suppressed symptoms after the one firing root cause, so a fix that memorised alr-1001 fails here.
+prompt: What is the most urgent issue on tenant orbit-tv at the moment? Give me the details.
+max_steps: 5
+expect:
+  tools:
+    sequence:
+      - tool: list_active_alerts
+        args: {tenantId: orbit-tv}
+      - tool: explain_alert
+        args:
+          tenantId: orbit-tv
+          alertId: alr-3001
+  final_text:
+    contains: [alr-3001]
+script:
+  - tool_calls:
+      - {name: list_active_alerts, arguments: {tenantId: orbit-tv}}
+  - tool_calls:
+      - {name: explain_alert, arguments: {tenantId: orbit-tv, alertId: alr-3001}}
+  - content: >-
+      The most urgent issue is alr-3001 (CRITICAL): error rate above 4% in ap-south-1. alr-3002 and alr-3003
+      (viewer drops) are symptoms it suppresses.

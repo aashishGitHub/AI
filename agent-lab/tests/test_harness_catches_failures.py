@@ -45,7 +45,7 @@ def test_wrong_args_fail_the_arg_check_but_not_selection(golden):
     assert not score.success
 
 
-def test_wrong_tenant_is_caught_even_though_the_server_accepted_it(golden):
+def test_wrong_tenant_fails_the_arg_check(golden):
     score = evaluate(
         golden["lookup_live_metrics"],
         tool_turn("get_live_metrics", tenantId="acme-video"),
@@ -92,6 +92,25 @@ def test_guessing_the_tenant_instead_of_asking_fails(golden):
     )
     assert any("missing 'tenant'" in f for f in score.outcome.failures)
     assert not score.success
+
+
+def test_an_invented_tenant_never_reaches_the_server_but_the_guess_still_fails_the_eval(golden):
+    case = golden["ambiguous_tenant_asks"]
+    turns = (tool_turn("list_active_alerts", tenantId="streamflix"), final_turn("Which tenant do you mean?"))
+    result, state = run(run_case(replace(case, script=turns), ScriptedLLM(turns_from_dicts(turns)), in_process_server))
+    record = result.tool_records[0]
+    assert (record.error_kind, record.executed) == ("ungrounded_argument", False)
+    score = score_run(case, result, state)
+    assert score.selection.failures == ("unexpected extra call(s) ['list_active_alerts'] after [] (expected 0 call(s))",)
+    assert score.outcome.ok is True and score.safety.ok is True
+    assert not score.success
+
+
+def test_the_grounding_guard_refuses_nothing_in_any_golden_trajectory(golden):
+    for case in golden.values():
+        turns = case.script
+        result, _ = run(run_case(case, ScriptedLLM(turns_from_dicts(turns)), in_process_server))
+        assert [r.call.name for r in result.tool_records if r.error_kind == "ungrounded_argument"] == [], case.id
 
 
 def test_calling_a_tool_that_does_not_exist_is_caught(golden):

@@ -69,13 +69,14 @@ Capella Billing Invoices via Workato → NetSuite (Go, `internal/billing/activat
 8. **Ops** — per-run metrics (extracted, loaded, failed, lag), DLQ for poison items, per-item error surfaced
    in UI.
 
-DevRev's AirSync splits this as extractor (forward) + loader (reverse), with object mappers for the id map
-[K — from developer.devrev.ai; verify].
+DevRev's AirSync (verified 2026-10-19): extraction + "data loading" (reverse sync); identity mappers
+(`getByExternalId` / `getByTargetId`) for the id map; loop prevention by version matching on the mapper's
+`external_versions`. Details: [`README.md`](README.md) §1.
 
-Your evidence: FieldSync `GolangExercise/offline-sync-app/internal/sync/` [L] — conflict handling + outbox.
-Be honest that it's device↔server sync; the SaaS↔SaaS echo-loop part is what you'd add.
+Your evidence: FieldSync `internal/sync/` (LWW) and `internal/twoway/` (id map, echo guard, field ownership) [L] —
+see [`STUDY.md`](STUDY.md) Q15.
 
-**9. Your sync function has a hard time limit (~13 min per invocation in AirSync). Initial import is 2M records.**
+**9. Your sync function has a hard time limit (AirSync: soft timeout capped at 10 min, hard kill at 1.3×). Initial import is 2M records.**
 - Paginate, checkpoint after every page into the platform's state object, exit cleanly before the budget,
   resume from the checkpoint on the next invocation.
 - Make each page's processing idempotent so a crash mid-page just replays the page.

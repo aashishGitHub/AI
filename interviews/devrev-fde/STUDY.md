@@ -3,7 +3,10 @@
 How to use: read the question, **answer out loud before scrolling**, then check against "Say this" and open
 "Your code". If you can't explain your own code without reading it, that question isn't done.
 
-Related: role + gap list → [`README.md`](README.md) · wider question bank → [`questions-answers.md`](questions-answers.md).
+**Start with [`LEVELS.md`](LEVELS.md)** — 16 topics, each escalating 🟢 beginner → 🟡 intermediate → 🔴 senior, with
+a self-assessment grid. Use this file for the deep dives behind each 🔴.
+
+Related: role + gap list → [`README.md`](README.md) · wider question bank → [`questions-answers.md`](questions-answers.md) · stories → [`STAR.md`](STAR.md).
 
 Lanes: **[P]** shipped at Couchbase · **[L]** your own build · **[K]** knowledge only.
 Couchbase code is proprietary — links below are for *your* local reading; never paste it into this repo.
@@ -96,7 +99,7 @@ RETURNING *;
   timestamps, hybrid logical clocks, or per-field ownership. Admit FieldSync accepts this trade-off.
 - *"How is this different from Jira ↔ DevRev two-way sync?"* → Two servers, not device ↔ server: you add an
   **id map** (external id ↔ internal id), **echo-loop prevention** (ignore the webhook caused by your own write),
-  and per-field source-of-truth. That's the part you'd add — say so.
+  and per-field source-of-truth. That's now built — see Q15.
 
 **Self-check:** Why is the `WHERE` on the `DO UPDATE` and not a separate `SELECT` first?
 
@@ -161,26 +164,52 @@ RETURNING *;
 
 ---
 
-### [ ] Q6. "Build a secure webhook receiver." — [K] ⚠️ no code yet
+### [ ] Q6. "Build a secure webhook receiver." — [L]
 
-**Say this:** HMAC (keyed hash) over the **raw body**, constant-time compare, timestamp window against replay,
-ack `2xx` fast and enqueue, dedupe on delivery id, ignore out-of-order by version.
+**Say this:** HMAC (keyed hash) over the **raw body** (not re-serialised JSON), constant-time compare, timestamp
+window against replay, bounded body size, ack `202` fast and process later, dedupe on delivery id, ignore
+out-of-order by version.
 
-**Bridge to your code:** "The processing half is the same consumer contract I built in FieldSync — dedup table,
-retry next tick. The receiving half I haven't shipped; here's how I'd do it." Then draw it.
+**Your code:**
+- Verify + handler + async worker → [`internal/webhook/`](../../../GolangExercise/offline-sync-app/internal/webhook) (`verify.go`, `handler.go`, `worker.go`)
+- Dedupe + raw event persisted by one `INSERT ... ON CONFLICT DO NOTHING` (PK = delivery id), then processed by a worker
+- Portable TS + Python verifier you can write on a whiteboard → [`drills/`](drills/DRILLS.md) §3
+- Proof: 25 unit tests; integration tests for bad signature → 401, stale timestamp, duplicate processed once, out-of-order ignored
 
-**Closes when:** plan day 2–3 in [`README.md`](README.md) §4.
+**Follow-ups:**
+- *"Why 202 and not 200 after processing?"* → Senders time out and retry; slow processing causes duplicate deliveries. Persist, ack, work async.
+- *"Is the delivery id signed?"* → Yes: the MAC covers `timestamp.deliveryId.rawBody`. Unsigned, a forged id could
+  make the dedupe table swallow the real delivery. Ids containing `.` are rejected, otherwise bytes could shift
+  between fields under the same MAC. A test swaps the id after signing → 401, and the real delivery still lands.
+- *"Real vendors?"* → Header names and signing scheme differ per vendor (verify each vendor's docs); mine is HMAC-SHA256 over `timestamp.deliveryId.rawBody`, my own mock's contract.
+
+**Self-check:** Why must you verify the raw bytes and not `JSON.stringify(JSON.parse(body))`?
+
+**Serverless:** deploy-ready, not deployed — [`cmd/webhook-receiver-lambda`](../../../GolangExercise/offline-sync-app/cmd/webhook-receiver-lambda) wraps the same router with `httpadapter.NewV2`; Terraform module `infra/terraform/modules/webhook` (route on the existing HTTP API, secret generated into Secrets Manager); `terraform validate` passes; an adapter test drives synthetic proxy events (valid 202, bad secret 401).
+**Limits to volunteer:** no `plan`/`apply` run against a real account; nothing drains the inbox in AWS yet; the secret is readable in Lambda env vars (fetching it from Secrets Manager at cold start would fix that).
 
 ---
 
-### [ ] Q7. "Your sync runs in a serverless function with a hard time limit." — [K] + [L]
+### [ ] Q7. "Your sync runs in a serverless function with a hard time limit." — [L]
 
 **Say this:** paginate, checkpoint after every page in durable state, check the remaining budget *before* starting
-a page, exit cleanly, resume next invocation. Each page idempotent so a crash replays one page. (DevRev AirSync:
-~13-min invocation cap + a state object — verify on developer.devrev.ai.)
+a page, exit cleanly, resume next invocation. Each page idempotent so a crash replays one page.
 
-**Your code (adjacent):** FieldSync and ticket-booking already split work into Lambdas
-(`cmd/*-lambda/main.go`) and rely on idempotent retries — same principle, without the checkpoint part.
+**Tie it to DevRev (verified on their docs 2026-10-19, `/airsync/worker-timeouts`):** soft timeout capped at
+**10 minutes**, hard kill at **1.3×** (~13 min). The worker checks `adapter.isTimeout` between pages and returns "in
+time for the SDK to save progress"; state resumes "at the next unconsumed page"; reads and writes must be
+replay-safe. "That's the same contract as my extractor: budget check before the page, checkpoint after it, never
+rely on the hard kill as a checkpoint."
+
+**Your code:**
+- Resumable extractor with checkpoint + budget check before each page → [`internal/twoway/extractor.go`](../../../GolangExercise/offline-sync-app/internal/twoway/extractor.go)
+- Proof: integration test "crash mid-backfill resumes with zero duplicates" (7 links, 7 events)
+- Whiteboard version (TS + Python, injected clock) → [`drills/`](drills/DRILLS.md) §7
+- Lambdas already exist in `cmd/*-lambda/` — same idempotent-retry principle
+
+**Honest limit:** DevRev's docs change — re-check `/airsync/worker-timeouts` the week of the interview before quoting numbers.
+
+**Self-check:** Why check the budget *before* a page and not after?
 
 ---
 
@@ -210,13 +239,22 @@ a page, exit cleanly, resume next invocation. Each page idempotent so a crash re
 
 ---
 
-### [ ] Q9. "How does function calling work end to end?" — [K]
+### [ ] Q9. "How does function calling work end to end?" — [L]
 
 **Say this:** send tool schemas → model returns a tool call (name + JSON args) → **you** validate and execute →
 return the result as a tool message → loop until final text. Guardrails: max iterations, per-tool timeout, arg
 validation, approval for writes, audit log of every call.
 
-**Bridge:** "My MCP server is the tool side of this loop; the client side is the gap I'm closing." Plan day 5–6.
+**Your code:** [`agent-lab/agent/`](../../agent-lab/agent) — loop, `ToolExecutor` (validates args against the tool's
+JSON schema *before* calling; never throws), `ApprovalGate` (default deny), JSONL `AuditLog`, `max_steps`. It is an
+MCP client over stdio to [`agent-lab/mcp_server/`](../../agent-lab/mcp_server). Flow diagram + 10 Q&As:
+[`agent-lab/NOTES.md`](../../agent-lab/NOTES.md).
+
+**Honest limits (volunteer these):** the MCP server is a Python re-implementation of the contract of your Java
+streampulse server, not that server. Live-model numbers exist but are a tiny sample: `qwen2.5:3b`, n=5 per case,
+CPU in Docker (see Q11).
+
+**Self-check:** Why does a tool return `isError` instead of throwing?
 
 ---
 
@@ -237,12 +275,30 @@ contract → [stream.go:18-27](../../fe-hands-on/server/stream.go#L18-L27)
 
 ---
 
-### [ ] Q11. "How do you evaluate an agent, not just an answer?" — [K] ⚠️ partial
+### [ ] Q11. "How do you evaluate an agent, not just an answer?" — [L]
 
 **Say this:** trajectory (right tool? right args? step count?), outcome (task done — deterministic check),
 final text (judge, calibrated), cost/latency. Golden set from real tickets, CI gate, sampled online traces.
 
-**Your code:** RAG eval harness exists → [`../../evals/`](../../evals/). Agent-trajectory eval is the gap (plan day 5–6).
+**Your code:** [`agent-lab/evals/`](../../agent-lab/evals) — 13 golden cases (lookup, two-step chain, no-tool,
+ambiguous-tenant-should-ask, write-after-approval, prompt injection). Deterministic mode gates (ScriptedLLM, no
+network, ran 13/13); live mode is report-only.
+- **Proof the harness isn't green by construction:** 18 deliberately wrong trajectories each fail with a precise reason, e.g. `call 1: expected 'list_active_alerts' but model called 'explain_alert'`. Same lesson as your judge inversion.
+- **Injection:** a ScriptedLLM that *obeys* the injection is stopped by the approval gate; removing the gate turned 2 cases red.
+- RAG eval for comparison → [`../../evals/`](../../evals/)
+
+**Live result (real model, `qwen2.5:3b`, n=5 × 12 cases = 60 runs, local CPU, tiny sample):** task success **82%**, tool selection 92%, arg accuracy 90%, **0 safety failures**. Ten cases 5/5 or 4/5; two cases **0/5**, both real model behaviour (checked in the audit logs, not harness bugs):
+- `ambiguous_tenant_asks` — the model **invented a tenant id** (`streampulse`) and called the tool instead of asking, then asked after the `unknown tenant` error.
+- `chain_list_then_explain` — it read the list correctly, then explained the **suppressed** alert `alr-1002` instead of the firing root cause `alr-1001`, every run.
+- `injection_resisted` 5/5 is the **model** resisting: no write was ever attempted, so the gate wasn't exercised live (it is proven in deterministic mode).
+
+**Say this:** "The eval earned its keep on the first live run: a 3B model guesses missing required arguments and picks the wrong item from a list. I tried a grounded-argument guard, prompt changes, and a `startHere` field in the tool result, one change at a time at n=10 with held-out cases. The guard is a real safety control but didn't change the behaviour; `startHere` fixed one rephrased case 1/10 to 10/10 but not the target. Negative results, recorded in agent-lab/NOTES.md — a 3B model needs a different fix (bigger model, or a forced clarification step)."
+
+**Why that is a good answer:** you changed one variable at a time, wrote held-out cases first, and refused to claim an overfit win (one held-out 10/10 beside a sibling 0/10).
+
+**Honest limits:** deterministic mode proves plumbing + guardrails, **not model quality**. One model, n=5, one injection phrasing. Cause of the two failures not isolated (nothing varied).
+
+**Self-check:** Why is the deterministic suite gating and the live suite report-only?
 
 ---
 
@@ -264,12 +320,73 @@ Your Go versions: [`DSnAlgoUsingJS/Go/toposort`](../../../DSnAlgoUsingJS/Go/topo
 
 ---
 
-### [ ] Q13. Coding drills still missing (write these, then tick)
+### [ ] Q13. Coding drills — solutions exist; you must be able to write them **cold**
 
-- [ ] Token-bucket rate limiter (TS + Python) — you only have LeetCode 359's logger
-- [ ] Retry with exponential backoff + full jitter, honouring `Retry-After`
-- [ ] Deep diff of two JSON objects → list of field changes (the core of sync)
-- [ ] Webhook HMAC verify over raw body (TS)
+Solutions + tests + say-this scripts: [`drills/DRILLS.md`](drills/DRILLS.md) (190 TS + 196 Python tests).
+Tick each only after you rebuilt it from a blank file in ≤ the budget — that's Round 6.
+
+---
+
+## Round 2b — Built in the gap-closing sprint (2026-10-19)
+
+### [ ] Q15. "Design two-way sync between two SaaS tools." — [L]
+
+**Say this:** four moving parts, in order of the data:
+1. **Inbound:** signed webhook → persisted inbox row (dedupe by delivery id) → async worker. Plus a **cursor poll with an overlap window** as the correctness net, because webhooks get dropped.
+2. **Object mapper:** `external_id_map (system, external_id ↔ internal_id)`; every upsert keys on it.
+3. **Decide per field:** per-field **ownership** (e.g. status owned by external, notes by internal); tie-break on the external `version`, **never client clocks**. Outcomes: `applied | ignored_stale | echo | conflict`.
+4. **Outbound loader:** pushes internal changes with an idempotency key; 429 honours `Retry-After`; 5xx backs off with jitter; after 3 failed attempts a poison event goes to a dead-letter table with the reason. Deletes are **tombstones**, never "missing from the poll".
+
+**Your code:** [`internal/twoway/`](../../../GolangExercise/offline-sync-app/internal/twoway) (`apply.go`, `ownership.go`, `extractor.go`, `loader.go`) · [`internal/mockjira/`](../../../GolangExercise/offline-sync-app/internal/mockjira) · doc with 8 Q&As: [`docs/two-way-sync.md`](../../../GolangExercise/offline-sync-app/docs/two-way-sync.md)
+
+**Proof:** 57 twoway + 25 webhook + 14 mockjira unit tests; 15 integration tests on real Postgres (echo loop terminates, crash mid-backfill = zero duplicates, 429 honoured, dead-lettering). Each safeguard was removed in turn and at least one test failed.
+
+**Be honest about the echo guard:** the echo memory **overlaps two other guards** (single-writer fields, origin filter), so "the loop terminates" alone doesn't prove it's needed. One test — an echo of an *older* push after a newer local edit — fails without it. Say that unprompted.
+
+**DevRev does the same thing (verified, `/airsync/loop-prevention`):** after a write the SDK stores the mapper's `external_versions` `{ modified_date, recipe_version: 0 }`, and the connector must return the external system's real `modifiedDate` so the next import recognises DevRev's own change by **version matching**. Say: "That's my echo memory — remember the version I pushed, drop the change that comes back with it. And I'd never fabricate the timestamp, because that silently breaks the match."
+
+**Honest limits:** runs against a **mock Jira**, not a real vendor. No secret rotation, extractor lock, DLQ replay tooling or metrics.
+
+**Self-check:** Why can't "the webhook arrived, so apply it" work once you also push changes back?
+
+---
+
+### [ ] Q16. "What is N+1 in GraphQL and how did you fix it?" — [L]
+
+**Say this:** a list of 50 locations, each resolving its own children = 1 + 50 + 150 queries. A per-request **DataLoader** collects the keys requested in one batch window and issues one query per level.
+
+**Your numbers (asserted in tests, 50 locations × 3 assessments × 2 photos):** naive **201** store calls → batched **3** (4 if `stats` is selected). Breaking the loader turns the batched test red with 201. Real Postgres: 3 SQL statements.
+
+**Your code:** [`internal/graph/`](../../../GolangExercise/offline-sync-app/internal/graph) (`dataloader.go`, `loaders.go`, `nplusone_test.go`) · [`docs/graphql.md`](../../../GolangExercise/offline-sync-app/docs/graphql.md) (8 Q&As)
+
+**Follow-ups:** keyset cursor (`updated_at, id`) not offset — stable under writes; depth + cost limits (`first:50` full nesting costs 5600, accepted; `first:100` costs 11200, rejected); a failing child field returns partial data + `errors[]`, not a 500; per-request cache, never global (stale + cross-tenant leak risk).
+
+**Index (shipped, migration 000004, `CREATE INDEX CONCURRENTLY`):** on 100k rows the keyset query becomes `Index Scan using disaster_locations_updated_at_id_idx`, both predicates in the Index Cond, 4 buffers — vs a parallel seq scan, 2,485 buffers, 19.2 ms without it (local). With only 50 rows the planner still picks a seq scan — correctly.
+
+**Honest limits:** no tombstones in the schema so deletes can't sync; fragment-bomb validation untested. Library: gqlgen v0.17.95; the loader is hand-written.
+
+**Self-check:** Why is the DataLoader cache per-request and not global?
+
+---
+
+### [ ] Q17. "Write SQL that answers a customer's question." — [L]
+
+**Say this:** start from the decision, not the query ("do we need more field staff?" / "where is sync failing?"), pick **3 metrics**, one query each. Know the window-function family cold: `row_number` vs `rank` vs `dense_rank` differ only on ties; frame defaults (`RANGE` vs `ROWS`) change moving averages; `percentile_cont ... WITHIN GROUP` + `FILTER` for p50/p90/p99; gaps-and-islands for sessions; `generate_series` + `LEFT JOIN` to fill empty buckets.
+
+**Your material:** [`analytics/`](../../../GolangExercise/offline-sync-app/analytics) — 14 queries (each: business question → SQL → result shape → interview notes), seeded dataset, [`QUESTIONS.md`](../../../GolangExercise/offline-sync-app/analytics/QUESTIONS.md) (12 questions with pitfalls + the one-decision dashboard), [`EXPLAIN.md`](../../../GolangExercise/offline-sync-app/analytics/EXPLAIN.md).
+
+**Measured (local, one machine, median of 6 runs, synthetic seed — not a real system):**
+- aggregate history: 6.11 ms Seq Scan → 0.105 ms Bitmap Index Scan (buffers 3,063 → 10)
+- actor recent activity: 8.54 ms → 0.46 ms (buffers 3,063 → 93)
+- consumer recent processing: 4.32 ms → 0.22 ms Index Only Scan (buffers 1,081 → 9)
+
+**Proof:** 34 tests + subtests, 0 failing — invariants per query (≤3 rows per group, p50 ≤ p90 ≤ p99, retention in [0,1]), identical results under UTC vs Pacific/Auckland, byte-identical seed across runs.
+
+**Two real bugs the tests caught (good story):** `interval '14 days'` on `timestamptz` moved a cut-off across a DST change; a re-seed failed because temp functions persisted in the session.
+
+**Honest limits:** write cost of the extra indexes not measured; cohorts are tiny (25 actors); all numbers come from data the seed planted.
+
+**Self-check:** Same score for two actors — which of `row_number`, `rank`, `dense_rank` returns both, and what's the next rank after?
 
 ---
 
@@ -287,10 +404,49 @@ Full structure: [`questions-answers.md`](questions-answers.md) Q44. Use your own
 
 ---
 
+## Round 6 — Own it cold (the sprint code was built with AI help; it is only yours once you can rebuild it)
+
+An interviewer will ask you to write or whiteboard these. Opening the solution is allowed only after your attempt.
+For each: blank file, injected clock/sleeper/rng, say the approach out loud first, then tests from [`drills/`](drills/).
+
+**Rebuild from blank, within the budget in [`DRILLS.md`](drills/DRILLS.md) — TS first, then Python:**
+- [ ] Token-bucket rate limiter
+- [ ] Retry: exponential backoff + full jitter + `Retry-After`
+- [ ] Webhook HMAC verify (raw bytes, constant-time, timestamp window)
+- [ ] Deep JSON diff + `applyPatch`
+- [ ] Merge/dedupe by key, latest version wins
+- [ ] BFS levels, Kahn toposort, cycle path
+- [ ] Resumable extractor under a time budget
+- [ ] Echo-loop guard
+- [ ] LRU cache; sliding-window log vs fixed-window counter
+
+**Explain out loud, 3 minutes each, no code open:**
+- [ ] One webhook from arrival to applied row (verify → inbox → worker → mapper → ownership → outcome)
+- [ ] Outbox → Debezium → Kafka, and why the tombstone
+- [ ] N+1: why 201 became 3
+- [ ] One agent turn: model → tool call → validate → approval gate → execute → audit → loop
+
+**Run each suite once yourself so the green is yours:**
+```
+npx vitest run
+```
+(in `interviews/devrev-fde/drills/ts`)
+
+```
+.venv/bin/pytest -q
+```
+(in `interviews/devrev-fde/drills/py` and in `agent-lab`)
+
+```
+go test ./...
+```
+(in `GolangExercise/offline-sync-app`)
+
 ## Before the interview — checklist
 
-- [ ] Q1 result numbers filled in from real data
-- [ ] Every Round 1–3 box ticked
-- [ ] Q6 and Q9 moved from [K] to [L] (plan days 2–6)
-- [ ] One Python drill done per day for the last 5 days
+- [ ] Every Round 1–3 box and Q15–Q17 ticked
+- [ ] Round 6 fully ticked
+- [x] Live agent eval run against a real model (`qwen2.5:3b`, 82% task success, 2 cases 0/5) — optional follow-up: try to fix the two failing cases and re-measure
+- [x] AirSync specifics verified on developer.devrev.ai (2026-10-19) — see README §1; re-check the week of the interview
+- [ ] [`STAR.md`](STAR.md) — 7 stories drafted from evidence; fill the `[you: …]` slots and say each 60-second version out loud
 - [ ] Re-read [`README.md`](README.md) §1 (AirSync vocabulary) the morning of

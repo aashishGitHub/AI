@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 
 from jsonschema import Draft202012Validator
 from jsonschema.validators import validator_for
 
 from agent.approval import ApprovalGate, Decision
+from agent.grounding import ungrounded_args
 from agent.mcp_backend import ToolBackend
 from agent.types import ToolCall, ToolSpec
 
@@ -42,6 +43,7 @@ class ToolExecutor:
         default_timeout_s: float = 10.0,
         timeouts_s: Mapping[str, float] | None = None,
         max_result_chars: int = 8000,
+        grounded_args: Collection[str] = (),
     ) -> None:
         self._backend = backend
         self._tools = {t.name: t for t in tools}
@@ -49,16 +51,17 @@ class ToolExecutor:
         self._default_timeout_s = default_timeout_s
         self._timeouts_s = dict(timeouts_s or {})
         self._max_result_chars = max_result_chars
+        self._grounded_args = frozenset(grounded_args)
 
-    async def execute(self, call: ToolCall, step: int) -> ToolRecord:
+    async def execute(self, call: ToolCall, step: int, evidence: Sequence[str] = ()) -> ToolRecord:
         started = time.perf_counter()
         try:
-            return await self._execute(call, step, started)
+            return await self._execute(call, step, started, evidence)
         except Exception as exc:
             return self._record(call, step, started, f"error: {call.name} could not be run; see the audit log",
                                 kind="internal_error", detail=f"{type(exc).__name__}: {exc}")
 
-    async def _execute(self, call: ToolCall, step: int, started: float) -> ToolRecord:
+    async def _execute(self, call: ToolCall, step: int, started: float, evidence: Sequence[str]) -> ToolRecord:
         tool = self._tools.get(call.name)
         if tool is None:
             known = ", ".join(sorted(self._tools))
@@ -69,6 +72,14 @@ class ToolExecutor:
         if problems:
             return self._record(call, step, started,
                                 f"error: invalid arguments for {call.name}: {problems}", kind="invalid_arguments")
+
+        ungrounded = ungrounded_args(call.arguments, self._grounded_args, evidence)
+        if ungrounded:
+            return self._record(
+                call, step, started,
+                f"error: {', '.join(ungrounded)} did not come from the user or an earlier tool result, so"
+                f" {call.name} was not called. Do not guess identifiers: ask the user for the missing value.",
+                kind="ungrounded_argument")
 
         decision = self._gate.decide(call, tool)
         if not decision.approved:

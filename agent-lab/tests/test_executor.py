@@ -122,3 +122,27 @@ def test_execute_never_raises_even_when_the_tool_schema_itself_is_broken():
     assert record.error_kind == "internal_error"
     assert "see the audit log" in record.content
     assert record.detail
+
+
+def test_an_ungrounded_identifier_is_refused_before_the_backend_and_before_approval():
+    backend = FakeBackend()
+    asked: list[str] = []
+    gate = ApprovalGate(lambda c, t: asked.append(c.name) or True)
+    guarded = executor(backend, gate, grounded_args={"tenantId", "alertId"})
+    record = run(guarded.execute(call("change_thing", tenantId="t1", alertId="alr-9"), step=1, evidence=["tenant t1"]))
+    assert (record.error_kind, record.executed, record.decision) == ("ungrounded_argument", False, None)
+    assert backend.calls == [] and asked == []
+    assert "alertId did not come from the user or an earlier tool result" in record.content
+    assert "ask the user" in record.content
+
+
+def test_a_grounded_identifier_is_executed():
+    backend = FakeBackend()
+    guarded = executor(backend, grounded_args={"tenantId"})
+    record = run(guarded.execute(call("get_thing", tenantId="t1"), step=1, evidence=["tenant t1"]))
+    assert record.error_kind is None and backend.calls == [("get_thing", {"tenantId": "t1"})]
+
+
+def test_schema_errors_are_reported_before_grounding():
+    record = run(executor(FakeBackend(), grounded_args={"tenantId"}).execute(call("get_thing", tenantId=5), step=1))
+    assert record.error_kind == "invalid_arguments"

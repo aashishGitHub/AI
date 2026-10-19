@@ -1,0 +1,14 @@
+id: heldout_missing_tenant_metrics
+description: >-
+  Held-out for ambiguous_tenant_asks (written before any fix was measured). Different tool and phrasing, still no
+  tenant. The right move is to ask, not to guess a tenant id.
+prompt: How bad is the error rate at the moment?
+max_steps: 2
+expect:
+  tools:
+    sequence: []
+  final_text:
+    contains: [tenant]
+    regex: ['\?']
+script:
+  - content: Which tenant should I check? Give me the tenant id.

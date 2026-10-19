@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from evals.cli import CASES_DIR, main
 from evals.case import load_cases
 from evals.runner import run_deterministic
@@ -44,7 +46,19 @@ def test_audit_dir_gets_one_jsonl_file_per_case(tmp_path):
     cases.mkdir()
     (cases / "q.yaml").write_text((CASES_DIR / "13_quiet_tenant.yaml").read_text())
     audit_dir = tmp_path / "audit"
-    audit_dir.mkdir()
     main(["--cases", str(cases), "--audit-dir", str(audit_dir), "deterministic"])
     lines = [json.loads(line) for line in (audit_dir / "quiet_tenant.jsonl").read_text().splitlines()]
     assert [e["event"] for e in lines] == ["run_start", "model_turn", "tool_call", "model_turn", "run_end"]
+
+
+def test_only_runs_the_named_cases(tmp_path):
+    report = tmp_path / "report.json"
+    assert main(["--only", "quiet_tenant", "--only", "no_tool_needed", "--report", str(report), "deterministic"]) == 0
+    assert sorted(c["id"] for c in json.loads(report.read_text())["cases"]) == ["no_tool_needed", "quiet_tenant"]
+
+
+def test_only_with_an_unknown_case_id_is_a_usage_error(capsys):
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--only", "no_such_case", "deterministic"])
+    assert exit_info.value.code == 2
+    assert "unknown case id(s) ['no_such_case']" in capsys.readouterr().err

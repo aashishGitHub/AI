@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from agent.ollama import OllamaLLM
-from evals.case import load_cases
+from evals.case import Case, load_cases
 from evals.report import render_text, to_json
 from evals.runner import run_deterministic, run_live
 
@@ -31,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cases", type=Path, default=CASES_DIR)
     parser.add_argument("--report", type=Path, help="write a JSON report here")
     parser.add_argument("--audit-dir", type=Path, help="write one JSONL audit file per run here")
+    parser.add_argument("--only", action="append", metavar="CASE_ID", help="run only this case (repeatable)")
     modes = parser.add_subparsers(dest="mode", required=True)
     modes.add_parser("deterministic", help="ScriptedLLM, no network, gating: exit 1 on any failure")
     live = modes.add_parser("live", help="OllamaLLM, report-only: always exit 0")
@@ -40,15 +41,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _deterministic(args: argparse.Namespace) -> int:
-    scores = asyncio.run(run_deterministic(load_cases(args.cases), audit_dir=args.audit_dir))
+def _deterministic(args: argparse.Namespace, cases: list[Case]) -> int:
+    scores = asyncio.run(run_deterministic(cases, audit_dir=args.audit_dir))
     print(render_text(scores))
     if args.report:
         args.report.write_text(json.dumps(to_json(scores, {"mode": "deterministic"}), indent=2))
     return 0 if all(s.success for s in scores) else 1
 
 
-def _live(args: argparse.Namespace) -> int:
+def _live(args: argparse.Namespace, cases: list[Case]) -> int:
     models = pulled_models(args.ollama_url)
     if models is None:
         print(f"SKIPPED: no Ollama reachable at {args.ollama_url}")
@@ -57,7 +58,7 @@ def _live(args: argparse.Namespace) -> int:
         print(f"SKIPPED: model '{args.model}' is not pulled; Ollama has: {models or 'no models'}")
         return 0
     scores = asyncio.run(
-        run_live(load_cases(args.cases), lambda: OllamaLLM(args.model, args.ollama_url), args.n,
+        run_live(cases, lambda: OllamaLLM(args.model, args.ollama_url), args.n,
                  audit_dir=args.audit_dir)
     )
     k = min(args.n, 3)
@@ -70,8 +71,17 @@ def _live(args: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    return _deterministic(args) if args.mode == "deterministic" else _live(args)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    cases = load_cases(args.cases)
+    if args.only:
+        unknown = sorted(set(args.only) - {c.id for c in cases})
+        if unknown:
+            parser.error(f"--only: unknown case id(s) {unknown}")
+        cases = [c for c in cases if c.id in args.only]
+    if args.audit_dir:
+        args.audit_dir.mkdir(parents=True, exist_ok=True)
+    return _deterministic(args, cases) if args.mode == "deterministic" else _live(args, cases)
 
 
 if __name__ == "__main__":

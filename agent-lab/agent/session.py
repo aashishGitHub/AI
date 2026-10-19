@@ -6,6 +6,7 @@ from mcp.server import MCPServer
 from agent.approval import Approver, ApprovalGate, deny_all
 from agent.audit import AuditLog
 from agent.executor import ToolExecutor
+from agent.grounding import IDENTIFIER_ARGS
 from agent.llm import LLM
 from agent.loop import SYSTEM_PROMPT, RunResult, run_agent
 from agent.mcp_backend import connect_mcp
@@ -22,5 +23,5 @@ async def run_session(
 ) -> RunResult:
     async with connect_mcp(server) as backend:
         tools = await backend.list_tools()
-        executor = ToolExecutor(backend, tools, ApprovalGate(approver))
+        executor = ToolExecutor(backend, tools, ApprovalGate(approver), grounded_args=IDENTIFIER_ARGS)
         return await run_agent(prompt, llm, executor, tools, audit, max_steps, system_prompt)

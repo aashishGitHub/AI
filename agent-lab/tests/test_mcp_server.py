@@ -75,6 +75,14 @@ def test_list_active_alerts_splits_firing_from_suppressed_and_names_the_root_cau
     assert [(a["alertId"], a["suppressedBy"]) for a in data["suppressed"]] == [("alr-1002", "alr-1001")]
 
 
+@pytest.mark.parametrize(("tenant", "root_causes"), [("streamflix", ["alr-1001"]), ("orbit-tv", ["alr-3001"]),
+                                                    ("northwind", [])])
+def test_list_active_alerts_names_the_firing_root_causes_first(store, tenant, root_causes):
+    data = call_json(store, "list_active_alerts", {"tenantId": tenant})
+    assert next(iter(data)) == "startHere"
+    assert data["startHere"] == root_causes
+
+
 def test_tenant_text_is_only_ever_under_untrusted_never_in_the_generated_summary(store):
     data = call_json(store, "list_active_alerts", {"tenantId": "acme-video"})
     alert = data["firing"][0]

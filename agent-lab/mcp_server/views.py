@@ -87,7 +87,10 @@ def list_active_alerts(store: FixtureStore, tenant_id: object) -> dict[str, Any]
         summary += " A suppressed alert is a symptom of the firing root cause named in its suppressedBy."
     if omitted:
         summary += f" {omitted} alert(s) are not shown because of the limit."
+    if shown_firing:
+        summary += " To explain one, call explain_alert with an alertId from startHere: it adds recent metric values."
     return {
+        "startHere": [a.alert_id for a in shown_firing],
         "summary": summary,
         "dataNotice": DATA_NOTICE,
         "tenantId": tenant,
