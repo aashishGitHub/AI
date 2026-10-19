@@ -88,4 +88,7 @@ Mirrors the "Revision guide output" in [`../tutor-prompt.md`](../tutor-prompt.md
 
 ## Cross-links
 
+- **The single file to follow daily (learning, revision, prep):** [`STUDY-GUIDE.md`](STUDY-GUIDE.md) — state of the world, the story to have cold, the open-gap list in priority order, weekly cadence, revision numbers, kill-questions.
+- **Why each stage matters (business cases + local Docker proof):** [`ai-lifecycle-business-cases.md`](ai-lifecycle-business-cases.md) — the 8 AI-lifecycle stages, each with the Ask AI evidence, the command that demonstrates it locally, and the cost crossover (~12K req/month).
+- **Applying for roles (claim -> evidence audit):** [`application-readiness.md`](application-readiness.md) — every skill/resume claim colour-coded against a real artifact, the numbers to quote, the boundaries to hold, and what must be true before you hit send.
 - Master plan: [`../../RAMPUP.md`](../../RAMPUP.md) · Knowledge track: [`../../interviews/ROADMAP.md`](../../interviews/ROADMAP.md) · Case study: [`../Ask AI design document.md`](../Ask%20AI%20design%20document.md)

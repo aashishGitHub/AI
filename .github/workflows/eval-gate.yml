@@ -1,0 +1,62 @@
+# Eval regression gate — closes gap #1 (evals) from RAMPUP.md.
+#
+# Two tiers, because they have different costs and different failure meanings:
+#
+#   parity  — free, seconds, no model. Fails the PR if the eval harness's prompt
+#             drifts from the prompt the server actually ships (see
+#             evals/ci/check-parity.py for the incident this prevents).
+#   eval    — needs a model, costs minutes. Runs the golden set against local
+#             Ollama models in a service container. This is the "does the AI
+#             still behave" gate; it can be RED for a real, expected reason
+#             (see promptfooconfig.yaml's negative case) — read the job output,
+#             don't just watch the badge.
+name: eval-gate
+
+on:
+  pull_request:
+    paths:
+      - "evals/**"
+      - "fe-hands-on/server/stream.go"
+  workflow_dispatch: {}
+
+jobs:
+  parity:
+    name: prompt parity (no model, seconds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 evals/ci/check-parity.py
+
+  eval:
+    name: promptfoo eval (local Ollama)
+    runs-on: ubuntu-latest
+    needs: parity
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ollama has no official Docker Hub service-container image with models
+      # preloaded, so install the CLI directly and run it as a background
+      # process rather than a `services:` container — this is the documented
+      # pattern for GitHub-hosted runners (see ollama/ollama#1355 discussion).
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama and pull models
+        run: |
+          ollama serve &
+          for i in $(seq 1 30); do curl -sf http://localhost:11434 >/dev/null && break; sleep 1; done
+          ollama pull llama3.2:1b
+          ollama pull qwen2.5:3b
+
+      - name: Run promptfoo eval
+        working-directory: evals
+        run: npx --yes promptfoo@latest eval --no-cache
+
+      # promptfoo exits 100 on any failed assertion (verified locally 2026-09-07),
+      # so a red case above already fails this job — nothing further to gate on.
+      # A red run here is not automatically a merge-blocker: read the failure.
+      # If it's the documented "1B model occasionally invents syntax" case,
+      # that's real information about the model, not the harness.

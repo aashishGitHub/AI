@@ -41,10 +41,23 @@ These are true, screenshot/PR-backed artifacts. Use these before the capstone; t
 |---|---|---|---|---|
 | **Capella-UI Core Web Vitals initiative** (PR #51879) | LCP cut, 10-route audit system, CI perf gates in progress | **LCP 22s+ → 6–7s (~3x)**; bundle + TTI improved (directional); target sub-3s | Perf STAR story; "run a live perf audit" | **Author** (PR #51879) |
 | **MF × webpack chunking analysis** | splitChunks vs MF shared singletons; dual-React invalid-hook crash; runtimeChunk/defer failure modes; 1.6 MB wasted MF download | Qualitative architecture depth | Micro-frontend architect judgment story | **Author-track:** master until you can derive all 3 races unaided, then author the equivalent on your capstone for real. (Original Capella analyzer work: Pavel; bundle CI gate: Anand.) |
+| **Ask AI — production RAG** ([design doc](../Ask%20AI%20design%20document.md)) | Shipped docs assistant: hybrid vector+FTS with re-ranking, context-aware rephrasing, tiered rate limits, weekly re-embed cron | **2,667 docs → 7,597 chunks** (≤1k tokens); cron 5–6 h sync → **~20 min** w/ 10 goroutines; **~$0.01732/request** (design-doc snapshot, approximate) | "Show me production RAG"; cost/scale reasoning | **Contributor** — verify your own scope per component before claiming authorship of any one piece |
+| **Agent Console — grounded RAG + SSE** ([`fe-hands-on/`](../../fe-hands-on/)) | Go + Next.js: retrieval → grounded prompt → SSE `sources`/`token`/`done` frames w/ citations; `provider` + `Retriever` seams; abort cancels generation upstream | **46 Go + 20 TS tests** (0.82 s / 0.61 s, no Docker); TTFT **4.94 s**, 571 prompt / 128 completion tok; refusal **9 tok / 0.90 s**; model swap by one env var — all measured 2026-09-07 | "Show me your own RAG"; streaming/AI-native UI story; model-lifecycle answer | **Author** (this repo) |
+| **promptfoo eval harness** ([`evals/`](../../evals/)) | 2 golden cases (happy + negative), deterministic rules + `llm-rubric` judged by a **different-family** local model, both in Docker | **1 pass / 1 fail, 13 s, 1,206 tokens** (measured 2026-09-07); judge false-PASS fixed by rubric rephrase: **0/5 → 5/5** on both 1.5b and 3b | The eval kill-question ("how do you know it works?"); closes gap #1 | **Author** (this repo) |
 
 ### Metrics captured (real)
 - **LCP: 22s+ → 6–7s** on Capella console (perf initiative). Sub-3s is the next target, NOT yet achieved.
 - JustAnswer (prior, real): ~25% CS cost cut, ~$100K/month email self-resolution, agent handling 2min → 40s.
+- **Agent Console (lab, measured 2026-09-07, CPU-only Ollama in Docker):** TTFT **4.94 s** / 7.09 s wall,
+  571 prompt + 128 completion tokens; an out-of-scope question refused in **9 tokens / 0.90 s** — a refusal is
+  **~14× cheaper in output tokens** than an answer, because retrieval cost is flat and the saving is all
+  generation. 66 tests run in **<1.5 s** with no model server.
+- **Eval harness (lab, measured 2026-09-07):** 1 pass / 1 fail on 2 golden cases, 13 s, 1,206 tokens
+  (574 system-under-test + 632 grading). Judge is **uncalibrated** — say so before you're asked.
+- **Ask AI cost model (from the design doc, approximate, re-verify pricing):** ~$0.01732/request;
+  **~12,000 requests/month** is the crossover where model spend overtakes the entire Capella cluster bill.
+  Full derivation + a flagged 10× arithmetic error in the source table:
+  [`ai-lifecycle-business-cases.md`](ai-lifecycle-business-cases.md) §3.
 
 > Full interview-ready phrasing for each of these (with likely follow-ups and the honest boundary to hold) lives in [`screening-prep.md`](screening-prep.md). Market/positioning claims (FDE growth, comp bands, 2026 hiring trends) live in [`positioning.md`](positioning.md) — verify dates/stats there before repeating them; several are self-reported or small-sample.
 
@@ -184,7 +197,24 @@ No dedicated frontend tracker existed before this update (AI has `RAMPUP.md`; AW
 - [ ] Turn into a **STAR story**: 22s → 6–7s, method, what's left, one diagnosed failure. (See `screening-prep.md` — this story is already interview-ready; keep it current as the sub-3s work progresses.)
 
 ### C. Close the AI roadmap's #1 gap (evals) — still the differentiator
-- [ ] Build the capstone eval harness (golden set, LLM-as-judge + rule checks, CI regression) — tracked in [`RAMPUP.md`](../../RAMPUP.md) and [`01-promptfoo-golden-dataset-llm-judge.md`](01-promptfoo-golden-dataset-llm-judge.md).
+- [x] Golden dataset + deterministic rule checks — [`evals/promptfooconfig.yaml`](../../evals/promptfooconfig.yaml), 2 cases.
+- [x] LLM-as-judge on a different-family local model, running in Docker with no API key.
+- [x] Verified end-to-end 2026-09-07: 1 pass / 1 fail, 13 s, 1,206 tokens.
+- [x] **Prompt parity** — fixed 2026-09-07. [`evals/prompts/answer.txt`](../../evals/prompts/answer.txt) now
+      carries the refusal string and "never invent syntax" rule from `groundedSystemPrompt`; `[n]` citations
+      stay exempt (golden contexts are unnumbered). Verified both directions via
+      [`check-parity.py`](../../evals/ci/check-parity.py): fails on the old prompt, passes on the new one.
+- [x] **CI regression gate** — [`.github/workflows/eval-gate.yml`](../../.github/workflows/eval-gate.yml)
+      built, 2 tiers, both pass locally 2026-09-07. **Open:** hasn't run on an actual GitHub Actions runner yet
+      — push a PR and watch it execute for real.
+- [x] **Judge calibration** — found a real bug: `qwen2.5:1.5b` deterministically inverted a correct rubric
+      3/3 runs on a fixed input (temp 0); `qwen2.5:3b` got it right 3/3 on the same input. Swapped the eval's
+      judge model. Full isolation methodology and result: `ai-lifecycle-business-cases.md` §6 (once you add it
+      there) and [`STUDY-GUIDE.md`](STUDY-GUIDE.md) §0.
+- [ ] Grow past 2 golden cases (citation fidelity, multi-turn, injection, PII).
+
+> Claim-by-claim audit of what this evidence does and does not license you to say:
+> [`application-readiness.md`](application-readiness.md).
 
 ### D. Overdue anchor
 - [ ] Submit the **3 rewritten Couchbase resume bullets** (deployment-oriented language, per `positioning.md` §3). Week 1 item, still open.

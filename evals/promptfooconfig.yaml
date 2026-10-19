@@ -11,7 +11,19 @@ prompts:
 defaultTest:
   options:
     provider:
-      id: ollama:chat:qwen2.5:1.5b # judge — different model than the one under test
+      # judge — different model AND different family than the SUT (llama3.2:1b),
+      # to avoid self-preference bias.
+      #
+      # Was qwen2.5:1.5b until 2026-09-07. Isolation test: graded a FIXED output
+      # ("The provided documentation does not cover this.", no SUT variance) against
+      # this exact rubric, temperature 0, 3 runs. 1.5b returned pass=false all 3
+      # runs, with a reason that agrees the output has no SQL statement yet marks
+      # the rubric false anyway — a deterministic, reproducible inversion, not
+      # sampling noise. 3b returned pass=true all 3 runs on the identical input.
+      # Swapped to 3b for that reason. Re-run the isolation test before trusting
+      # any future judge swap — "bigger" is not the claim, "measured correct on
+      # this rubric" is.
+      id: ollama:chat:qwen2.5:3b
       config:
         temperature: 0 # deterministic grading; an unpinned judge drifts run to run
         passthrough:
