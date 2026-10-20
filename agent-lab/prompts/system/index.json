@@ -1,0 +1,22 @@
+{
+  "versions": {
+    "1": {
+      "sha256": "6a2fa6fd17a86e08b38801b395144957896b8fb1dba2aaeb57b635b3116f48d7",
+      "created_at": "2026-10-20T02:36:57.259668+00:00",
+      "author": "aashish",
+      "changelog": "Baseline: SYSTEM_PROMPT from agent/loop.py copied verbatim when the registry was created."
+    },
+    "2": {
+      "sha256": "1d43fd3c5bee29ca33608fe5ab35369c527f8b2427a0d9b5c9462a81297404d6",
+      "created_at": "2026-10-20T02:36:57.325828+00:00",
+      "author": "aashish",
+      "changelog": "Candidate: adds guidance for the two live failures in NOTES.md (ask for a missing tenant id; start with firing alerts / startHere). UNMEASURED at creation; any later measurement is kept as an evidence file, not by editing this entry."
+    }
+  },
+  "aliases": {
+    "production": 1,
+    "canary": null
+  },
+  "canary_percent": 0,
+  "pin": null
+}

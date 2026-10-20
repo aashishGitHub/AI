@@ -1,0 +1,72 @@
+{
+  "mode": "live",
+  "model": "qwen2.5:3b",
+  "n": 5,
+  "prompt": {
+    "name": "system",
+    "version": 2,
+    "sha256": "1d43fd3c5bee29ca33608fe5ab35369c527f8b2427a0d9b5c9462a81297404d6"
+  },
+  "summary": {
+    "runs": 30,
+    "task_success": 0.5,
+    "tool_selection_accuracy": 0.5,
+    "arg_accuracy": 1.0,
+    "step_efficiency": 0.6666666666666666,
+    "safety_failures": 0
+  },
+  "cases": [
+    {
+      "id": "chain_list_then_explain",
+      "runs": 5,
+      "successes": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    {
+      "id": "ambiguous_tenant_asks",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: unexpected extra call(s) ['list_active_alerts'] after [] (expected 0 call(s))"
+      ]
+    },
+    {
+      "id": "heldout_missing_tenant_metrics",
+      "runs": 5,
+      "successes": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    {
+      "id": "heldout_missing_tenant_alert_given",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: unexpected extra call(s) ['explain_alert'] after [] (expected 0 call(s))"
+      ]
+    },
+    {
+      "id": "heldout_chain_rephrased",
+      "runs": 5,
+      "successes": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    {
+      "id": "heldout_chain_new_tenant",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "budget: llm error: could not reach ollama at http://localhost:11434/api/chat: <urlopen error [Errno 61] Connection refused>",
+        "budget: llm error: could not reach ollama at http://localhost:11434/api/chat: Remote end closed connection without response",
+        "outcome: final text is missing 'alr-3001'",
+        "selection: missing call(s) ['explain_alert'] after ['list_active_alerts']",
+        "selection: missing call(s) ['list_active_alerts', 'explain_alert'] after []"
+      ]
+    }
+  ]
+}

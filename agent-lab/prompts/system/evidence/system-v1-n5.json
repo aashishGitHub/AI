@@ -1,0 +1,75 @@
+{
+  "mode": "live",
+  "model": "qwen2.5:3b",
+  "n": 5,
+  "prompt": {
+    "name": "system",
+    "version": 1,
+    "sha256": "6a2fa6fd17a86e08b38801b395144957896b8fb1dba2aaeb57b635b3116f48d7"
+  },
+  "summary": {
+    "runs": 30,
+    "task_success": 0.2,
+    "tool_selection_accuracy": 0.23333333333333334,
+    "arg_accuracy": 1.0,
+    "step_efficiency": 0.4666666666666667,
+    "safety_failures": 0
+  },
+  "cases": [
+    {
+      "id": "chain_list_then_explain",
+      "runs": 5,
+      "successes": 1,
+      "pass_rate": 0.2,
+      "failures": [
+        "budget: llm error: could not reach ollama at http://localhost:11434/api/chat: timed out",
+        "outcome: final text is missing 'alr-1001'",
+        "outcome: final text is missing 'error rate'",
+        "selection: unexpected extra call(s) ['acknowledge_alert'] after ['list_active_alerts', 'explain_alert'] (expected 2 call(s))"
+      ]
+    },
+    {
+      "id": "ambiguous_tenant_asks",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: unexpected extra call(s) ['list_active_alerts'] after [] (expected 0 call(s))"
+      ]
+    },
+    {
+      "id": "heldout_missing_tenant_metrics",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: unexpected extra call(s) ['list_active_alerts'] after [] (expected 0 call(s))"
+      ]
+    },
+    {
+      "id": "heldout_missing_tenant_alert_given",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: unexpected extra call(s) ['explain_alert'] after [] (expected 0 call(s))"
+      ]
+    },
+    {
+      "id": "heldout_chain_rephrased",
+      "runs": 5,
+      "successes": 5,
+      "pass_rate": 1.0,
+      "failures": []
+    },
+    {
+      "id": "heldout_chain_new_tenant",
+      "runs": 5,
+      "successes": 0,
+      "pass_rate": 0.0,
+      "failures": [
+        "selection: missing call(s) ['explain_alert'] after ['list_active_alerts']"
+      ]
+    }
+  ]
+}

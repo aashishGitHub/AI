@@ -21,6 +21,10 @@ such. Couchbase monorepo code is never quoted (proprietary) — only described, 
 | 07 | [SQL & analytics](07-sql-and-analytics.md) | foundations → windows → percentiles/buckets → cohorts → data quality → performance → dashboard | [L] synthetic data |
 | 08 | [Serverless, IaC, CI/CD & observability](08-serverless-iac-ci-observability.md) | Lambda → adapter → Terraform → secrets/IAM → CI → observability → containers | [L], never applied to AWS |
 | 09 | [Frontend for AI products](09-frontend-ai-ui.md) | streaming → reducer → abort → trust UX → accessibility → performance → testing | [L] |
+| 10 | [Agent memory & context](10-agent-memory-and-context.md) | why memory → context window → long-term store → retrieval → memory safety → loop integration → testing | [L] |
+| 11 | [Multi-agent orchestration & durable execution](11-multi-agent-orchestration-and-durable-execution.md) | single vs multi-agent → roles/allowlists → patterns → durable execution → retries/budgets → human approval → crash testing | [L] |
+| 12 | [Prompt versioning & agent lifecycle](12-prompt-versioning-and-agent-lifecycle.md) | versioned prompts → immutability → pinning → canary/shadow → eval-gated promotion → provenance → honest comparison | [L] |
+| 13 | [Java backend via streampulse](13-java-backend-streampulse.md) | structure & architecture rules → modern Java domain → Spring design → Kafka → reliability → testing → concurrency/JVM | [L] |
 
 **How to study a phase (10 minutes):** read the 🟢 question and answer it aloud before reading; do the same for 🟡 and
 🔴; then open the linked file and explain the snippet in your own words; finish with the module's self-check.

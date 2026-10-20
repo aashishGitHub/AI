@@ -18,7 +18,7 @@ dependencies = [
 dev = ["pytest==9.1.1"]
 
 [tool.setuptools]
-packages = ["agent", "mcp_server", "evals"]
+packages = ["agent", "mcp_server", "evals", "memory", "orchestrator", "promptreg"]
 
 [tool.setuptools.package-data]
 evals = ["cases/*.yaml"]
