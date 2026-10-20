@@ -11,6 +11,8 @@ expect — and to pivot to your own code at the rung where it gets real.
 Lanes: **[P]** shipped at Couchbase · **[L]** your own build. Say "I built" only where you wrote it.
 Links to Couchbase code are local and proprietary — read them, never paste them anywhere.
 
+**Going deeper:** [`modules/`](modules/README.md) has one guide per module (evals, RAG, agents, events, sync, GraphQL, SQL, serverless, frontend) with every *phase* laddered beginner → senior in full spoken sentences, with verified code snippets. Use this file for breadth, those for depth.
+
 Companion files: [`STUDY.md`](STUDY.md) (deep dives with follow-ups) · [`STAR.md`](STAR.md) (behavioural) ·
 [`drills/DRILLS.md`](drills/DRILLS.md) (coding) · [`README.md`](README.md) (role + gap list).
 
@@ -183,7 +185,7 @@ to keep current than retraining, and you can cite sources and refuse when nothin
 **🟡 How do you make the model say "I don't know" instead of inventing?**
 Give it a **permitted way out**: an explicit refusal string in the prompt. "Use ONLY the context" with no allowed
 alternative is a trap — the model can't comply and can't decline, so it invents (your measured Bug 1). Send sources
-before tokens so users judge the answer against evidence. Refusals are also cheap: ~14× fewer completion tokens.
+before tokens so users judge the answer against evidence. Refusals are also cheap: in one measured pair, 9 completion tokens against 128 (about 14×); single runs, so say "roughly an order of magnitude", not an exact ratio.
 *Your code:* grounded prompt [`stream.go:81-115`](../../fe-hands-on/server/stream.go#L81-L115) · SSE contract [`stream.go:18-27`](../../fe-hands-on/server/stream.go#L18-L27).
 
 **🔴 Retrieval quality is bad for one customer. And how do you swap the model without downtime?**

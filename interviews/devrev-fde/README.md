@@ -1,7 +1,7 @@
 # DevRev — Forward Deployed Engineer (Delhi NCR)
 
 Source: https://job-boards.greenhouse.io/devrev/jobs/6180279004 (read 2026-10-19).
-**Study order:** [`LEVELS.md`](LEVELS.md) (beginner → senior ladder) → [`STUDY.md`](STUDY.md) (deep dives) →
+**Study order:** [`LEVELS.md`](LEVELS.md) (beginner → senior ladder) → [`modules/`](modules/README.md) (every phase of every module, full answers) → [`STUDY.md`](STUDY.md) (deep dives) →
 [`STAR.md`](STAR.md) (stories) → [`drills/`](drills/DRILLS.md) (coding). Q&A bank: [`questions-answers.md`](questions-answers.md).
 
 ## 1. What the role actually is

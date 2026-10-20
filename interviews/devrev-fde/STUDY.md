@@ -3,6 +3,8 @@
 How to use: read the question, **answer out loud before scrolling**, then check against "Say this" and open
 "Your code". If you can't explain your own code without reading it, that question isn't done.
 
+**Per-module, per-phase ladders with full-sentence answers and verified code: [`modules/`](modules/README.md).**
+
 **Start with [`LEVELS.md`](LEVELS.md)** — 16 topics, each escalating 🟢 beginner → 🟡 intermediate → 🔴 senior, with
 a self-assessment grid. Use this file for the deep dives behind each 🔴.
 
@@ -271,7 +273,7 @@ CPU in Docker (see Q11).
 **Your code:** provider seam → [provider.go:30-38](../../fe-hands-on/server/provider.go#L30-L38) · SSE event
 contract → [stream.go:18-27](../../fe-hands-on/server/stream.go#L18-L27)
 
-**Self-check:** Why are refusals ~14× cheaper than grounded answers in your measurements?
+**Self-check:** Why are refusals roughly an order of magnitude cheaper than grounded answers (9 vs 128 completion tokens in one measured pair; answer length varies run to run)?
 
 ---
 

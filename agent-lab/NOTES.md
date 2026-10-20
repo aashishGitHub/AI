@@ -65,7 +65,7 @@ Data crossing each boundary:
 
 ## How it is tested
 
-160 tests, `pytest`, all pass on Python 3.14.7 (about 11-18 s) and on 3.11.8 in a scratch venv (about 11 s).
+184 tests, `pytest`, all pass on Python 3.14.7 (about 15 s) and on 3.12.15 in Docker (about 12 s). (160 before the grounded-argument guard and the held-out cases were added; 3.11.8 was checked at 160.)
 
 | Layer | What is asserted |
 |---|---|
@@ -127,7 +127,7 @@ Same check for the grounding guard (scratch copy, 2026-10-19), each mutation tur
 ## Proven vs not proven
 
 Proven (run, with real numbers):
-- 160/160 tests on Python 3.14.7 and 3.11.8. 13/13 golden cases over a real stdio MCP subprocess in about 8 s.
+- 184/184 tests on Python 3.14.7 and 3.12.15. 17/17 golden cases (13 original + 4 held-out) over a real stdio MCP subprocess.
 - The scorer fails with precise reasons for wrong tool, wrong args, extra steps, step-budget overrun, forbidden write, hallucinated action, guessed tenant.
 - The gate blocks a scripted obey-the-injection trajectory and the fixture state stays empty.
 - `OllamaLLM` request/response handling against a fake HTTP server shaped from Ollama's documented `/api/chat` tools format.
