@@ -612,5 +612,7 @@ I would point at the fresh `make_orchestrator` per loop turn: nothing in memory 
 - Do not claim multi-agent improved answers: the demo model is scripted, and no comparison against a single agent was run.
 - Do not claim the crash matrix proves survival of a real kill, a torn write or a power loss: the crash is an in-process exception and I did not verify macOS fsync behaviour.
 - Do not claim approvals are authenticated: `approve` records no identity, no expiry and no authentication, and nothing escalates a pause nobody answers.
+- Do not say a step can complete two approved writes: approval binds to one exact pending call, so on resume an earlier write that already ran is gated again and denied, and the run fails with "replay diverged". I found this while testing the timeout case and did not fix it.
+- Do not say a timed-out or failed write can be retried inside a step: the journal now refuses any new write while an earlier write in that step has an unknown outcome. Before that fix a model retry after a per-tool timeout sent the write twice; the test is `AI/agent-lab/tests/test_orchestrator_write_retry.py`.
 - Do not claim anything about how OrbitronAI's Galaxy platform works: I only know the phrases it advertises, and I have not seen its internals.
 - Do not claim the mutation checks are automated: I did them by hand in scratch copies and the bypasses are not in the repo.

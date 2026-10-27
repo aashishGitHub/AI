@@ -11,7 +11,7 @@ expect — and to pivot to your own code at the rung where it gets real.
 Lanes: **[P]** shipped at Couchbase · **[L]** your own build. Say "I built" only where you wrote it.
 Links to Couchbase code are local and proprietary — read them, never paste them anywhere.
 
-**Going deeper:** [`modules/`](modules/README.md) has one guide per module (evals, RAG, agents, events, sync, GraphQL, SQL, serverless, frontend) with every *phase* laddered beginner → senior in full spoken sentences, with verified code snippets. Use this file for breadth, those for depth.
+**Going deeper:** [`modules/`](modules/README.md) has one guide per module (evals, RAG, agents, events, sync, GraphQL, SQL, serverless, frontend) with every *phase* laddered beginner → senior in full spoken sentences, with verified code snippets. Each module also has a plain-English file in [`modules/simple/`](modules/simple/) and real-time scenarios in [`modules/scenarios/`](modules/scenarios/); to be grilled on any of it, use [`MOCK-INTERVIEWER.md`](MOCK-INTERVIEWER.md). Use this file for breadth, those for depth.
 
 Companion files: [`STUDY.md`](STUDY.md) (deep dives with follow-ups) · [`STAR.md`](STAR.md) (behavioural) ·
 [`drills/DRILLS.md`](drills/DRILLS.md) (coding) · [`README.md`](README.md) (role + gap list).

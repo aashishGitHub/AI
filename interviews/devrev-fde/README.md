@@ -1,8 +1,8 @@
 # DevRev — Forward Deployed Engineer (Delhi NCR)
 
 Source: https://job-boards.greenhouse.io/devrev/jobs/6180279004 (read 2026-10-19).
-**Study order:** [`LEVELS.md`](LEVELS.md) (beginner → senior ladder) → [`modules/`](modules/README.md) (every phase of every module, full answers) → [`STUDY.md`](STUDY.md) (deep dives) →
-[`STAR.md`](STAR.md) (stories) → [`drills/`](drills/DRILLS.md) (coding). Q&A bank: [`questions-answers.md`](questions-answers.md).
+**Study order:** [`LEVELS.md`](LEVELS.md) (beginner → senior ladder) → [`modules/`](modules/README.md) (per module: plain-English `simple/` file → full guide → real-time `scenarios/`) → [`STUDY.md`](STUDY.md) (deep dives) →
+[`STAR.md`](STAR.md) (stories) → [`drills/`](drills/DRILLS.md) (coding) → [`MOCK-INTERVIEWER.md`](MOCK-INTERVIEWER.md) (live mock, graded by [`RUBRIC.md`](RUBRIC.md)). Q&A bank: [`questions-answers.md`](questions-answers.md).
 
 ## 1. What the role actually is
 
@@ -88,6 +88,7 @@ Lanes: **[P]** shipped at Couchbase · **[L]** your own build · **[K]** knowled
 | **Webhooks** (HMAC verify, replay, retries) | `internal/webhook` (Go, 25 tests) + `drills/` verify (TS + Python); real receiver smoke-tested against mock Jira; delivery id signed; Lambda entrypoint + Terraform (`validate` passes) (L) | 🟢 — deploy-ready, never applied |
 | **GraphQL** | `internal/graph` (gqlgen): keyset connections, DataLoader, depth + cost limits; 201 → 3 DB calls asserted; 6 integration tests (L) | 🟢 |
 | **Analytics SQL** (window funcs, percentiles) + dashboards | `analytics/`: 14 queries, deterministic seed, EXPLAIN study (6.11→0.105 ms etc.), `QUESTIONS.md`; 34 tests with invariants | 🟢 — synthetic data, local numbers |
+| **Agent deployment + inter-agent communication** (services, deadlines, retries, queues, signed messages) | `AI/agent-lab/mesh` + `deploy/`: agents as HTTP services, signed envelopes, retry with one message id, leased queue with dead letters, MCP over streamable HTTP; 35 tests; run locally and in 3 containers once (L) | 🟢 — scripted model, never deployed to a cloud, not A2A; known gaps listed in module 14 |
 | **Python (strong)** | `drills/py` (196 tests, stdlib), `agent-lab` (160 tests) | 🟡 — code exists; **you must be able to write it cold** |
 | POCs, demos, customer stories | Workato story exists, not written as STAR | 🟡 |
 
