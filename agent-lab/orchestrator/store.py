@@ -274,6 +274,13 @@ class WorkflowStore:
         return JournalEntry(row["tool"], row["arguments"], bool(row["read_only"]), row["status"], row["content"],
                             bool(row["is_error"]))
 
+    def journal_unfinished_write(self, run_id: str, step_id: str) -> tuple[int, str] | None:
+        """A write that was started and never finished: its outcome is unknown, so it must not be repeated."""
+        row = self._db.execute(
+            "SELECT call_index, tool FROM journal WHERE run_id = ? AND step_id = ? AND read_only = 0"
+            " AND status != 'done' ORDER BY call_index LIMIT 1", (run_id, step_id)).fetchone()
+        return None if row is None else (row["call_index"], row["tool"])
+
     def journal_start(self, run_id: str, step_id: str, call_index: int, tool: str, arguments: str,
                       read_only: bool) -> None:
         with self._tx() as db:

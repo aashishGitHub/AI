@@ -111,7 +111,8 @@ def reactive_llm(role: AgentRole, step_id: str, attempt: int) -> LLM:
 
 def make_orchestrator(db: Path, world: World, *, llm_factory=reactive_llm, limits: Limits = Limits(),
                       crash=None, clock: FakeClock | None = None, sleeper=None, rng=None, audit=None,
-                      roles: Sequence[AgentRole] = ROLES, workflows=None) -> tuple[Orchestrator, WorkflowStore]:
+                      roles: Sequence[AgentRole] = ROLES, workflows=None,
+                      tools: Sequence[ToolSpec] = TOOLS, backend=None) -> tuple[Orchestrator, WorkflowStore]:
     clock = clock or FakeClock()
     store = WorkflowStore(db, clock)
 
@@ -122,7 +123,7 @@ def make_orchestrator(db: Path, world: World, *, llm_factory=reactive_llm, limit
     if crash is not None:
         kwargs["crash"] = crash
     orchestrator = Orchestrator(
-        store, WorldBackend(world), TOOLS, roles, workflows or {"triage": triage}, llm_factory, limits=limits,
+        store, backend or WorldBackend(world), tools, roles, workflows or {"triage": triage}, llm_factory, limits=limits,
         audit_stream=audit, clock=clock, sleeper=sleeper or no_sleep, rng=rng or FixedRng(),
         new_id=lambda: RUN_ID, **kwargs)
     return orchestrator, store

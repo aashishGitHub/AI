@@ -40,6 +40,15 @@ class JournalingBackend:
         elif entry is not None and not entry.read_only:
             self.fatal = f"replay diverged at write call {index}: journal has {entry.tool}, the model asked for {name}"
             return ToolOutput(f"error: {name} not run; replay diverged from the journal", True)
+        if not read_only:
+            # A timed-out write is cancelled mid-call and keeps its 'started' row, while the model's retry
+            # arrives under the next index, so the index lookup above cannot see it.
+            unfinished = self._store.journal_unfinished_write(self._run_id, self._step_id)
+            if unfinished is not None:
+                prior_index, prior_tool = unfinished
+                self.fatal = (f"{prior_tool} (call {prior_index}) was started and never finished;"
+                              f" not running {name} (call {index}) while that write's outcome is unknown")
+                return ToolOutput(f"error: {name} not run; an earlier write in this step has an unknown outcome", True)
         self._store.journal_start(self._run_id, self._step_id, index, name, arguments_json, read_only)
         output = await self._inner.call_tool(name, arguments)
         self._crash(TOOL_EXECUTED, self._step_id)
