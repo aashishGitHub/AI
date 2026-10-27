@@ -12,6 +12,8 @@ the agent's *trajectory* (which tools, which args, how many steps, what ended up
 - `agent/` is the loop: `LLM` protocol, `ScriptedLLM`, `OllamaLLM`, `ToolExecutor`, `ApprovalGate`, `AuditLog`, MCP client.
 - `evals/` is the harness: 17 YAML cases (13 golden + 4 held-out, see "Fixing the two live failures"), matchers, scorer,
   metrics (incl. pass@k), deterministic and live modes.
+- `mesh/` runs agents as HTTP services that call each other (HTTP or a queue) with signed envelopes. Not the A2A
+  protocol; see "Mesh" below and `interviews/devrev-fde/modules/14-agent-deployment-and-inter-agent-communication.md`.
 
 SDK facts verified by reading installed source (not memory): `mcp==2.3.0`. In v2 `FastMCP` is gone: the server class is
 `mcp.server.MCPServer`, and `mcp.client.Client(StdioServerParameters | MCPServer)` is the high-level client. Most blog
@@ -197,6 +199,40 @@ Known deviations from the Java server (be upfront):
 
 Gaps to name before being asked: no per-turn cap on tool calls (a model can emit many in one turn), audit log has no redaction, no retries, no auth (stdio only), one server per run, fixed clock in fixtures, 13 cases is a seed not a benchmark.
 
+## Mesh: agents as services (`mesh/`, `deploy/`)
+
+Each agent is one role (module 11's `AgentRole`) behind an HTTP service. `triage` asks `investigator` through a tool,
+`ask_investigator`, so the caller's executor still validates, times out, gates and audits the hop. `AgentService.handle`
+is the only entry point; the HTTP route and the queue worker both call it.
+
+```
+user --signed envelope--> triage service  POST /tasks
+                              | handle(): verify sig, deadline, hops, recipient -> TaskStore.begin (dedupe by message_id)
+                              v
+                         run_agent (role tools only, deadline as timeout)
+                              | LLM asks ask_investigator(prompt)
+                              v
+                         ToolExecutor -> AgentToolBackend -> Transport
+                                                      |
+                     HttpTransport: MeshClient.send   |   QueueTransport: enqueue, poll TaskStore
+                     same message_id on every retry   |   lease / ack / nack / dead-letter
+                                                      v
+                         investigator service (hop_count + 1, same correlation_id)
+                              | run_agent -> McpToolBackend -> MCP server over streamable HTTP
+                              v
+                         task state: completed | failed | input-required (a write was denied)
+```
+
+Verified: 35 deterministic tests in `tests/test_mesh_*.py` (ASGI in process, scripted model, real fixture MCP server);
+`python -m mesh demo` over real local ports; `docker compose` with three containers, one signed task completed, torn
+down. Mutation-checked by hand once: dedupe, hop limit, no-retry on 4xx, role allowlist, signature, dead-letter, recipient.
+
+Known gaps (named in the module): a task that dies mid-run stays `working` and nothing reclaims it, and a queue message
+for it is still acked; the dedupe covers the client's retries, not the model calling the tool again; the caller's tool
+timeout (10 s) is shorter than the envelope deadline (30 s); one shared HMAC secret, so any holder can forge any sender;
+no TLS, no trace context, SQLite per service so one replica only; `input-required` is reported but cannot be approved.
+Not the A2A protocol (card path, state names, transports and auth all differ). Never deployed to a cloud.
+
 ## Commands (one per line)
 
 ```
@@ -211,6 +247,9 @@ cd /Users/aashishkumar/Documents/GitHub/AI/agent-lab
 .venv/bin/python -m agent "Acknowledge alert alr-1001 for tenant streamflix." --script evals/cases/07_ack_approved.yaml --approve acknowledge_alert --state-file runs/state.json
 .venv/bin/python -m agent "Summarize the active alerts for tenant acme-video." --script evals/cases/11_injection_obeyed_gate_blocks.yaml
 .venv/bin/python -m mcp_server --state-file runs/state.json
+.venv/bin/python -m mesh demo
+.venv/bin/pytest tests/test_mesh_envelope.py tests/test_mesh_http.py tests/test_mesh_queue.py tests/test_mesh_security.py tests/test_mesh_e2e.py
+MESH_SECRET=local-demo docker compose -f deploy/compose.yaml up --build
 ollama list
 ollama pull qwen2.5:3b
 .venv/bin/python -m agent "What is wrong with tenant streamflix?" --model qwen2.5:3b --ask

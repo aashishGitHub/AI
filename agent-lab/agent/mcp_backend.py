@@ -50,6 +50,6 @@ def stdio_server_params(state_file: Path | None) -> StdioServerParameters:
 
 
 @asynccontextmanager
-async def connect_mcp(server: StdioServerParameters | MCPServer) -> AsyncIterator[McpToolBackend]:
+async def connect_mcp(server: StdioServerParameters | MCPServer | str) -> AsyncIterator[McpToolBackend]:
     async with Client(server) as client:
         yield McpToolBackend(client)

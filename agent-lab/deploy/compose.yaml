@@ -1,0 +1,41 @@
+services:
+  mcp:
+    build: {context: .., dockerfile: deploy/Dockerfile}
+    command: ["mcp", "--host", "0.0.0.0", "--port", "8801"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8801), 2)"]
+      interval: 5s
+      retries: 10
+
+  investigator:
+    build: {context: .., dockerfile: deploy/Dockerfile}
+    command: ["agent", "--name", "investigator", "--host", "0.0.0.0", "--port", "8802",
+              "--public-url", "http://investigator:8802", "--mcp-url", "http://mcp:8801/mcp",
+              "--db", "/data/investigator.db", "--audit", "/data/investigator.jsonl"]
+    environment:
+      MESH_SECRET: ${MESH_SECRET:?set MESH_SECRET, it signs every envelope between agents}
+    volumes: ["investigator-data:/data"]
+    depends_on: {mcp: {condition: service_healthy}}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8802/readyz', timeout=2)"]
+      interval: 5s
+      retries: 10
+
+  triage:
+    build: {context: .., dockerfile: deploy/Dockerfile}
+    command: ["agent", "--name", "triage", "--host", "0.0.0.0", "--port", "8803",
+              "--public-url", "http://triage:8803", "--investigator-url", "http://investigator:8802",
+              "--db", "/data/triage.db", "--audit", "/data/triage.jsonl"]
+    environment:
+      MESH_SECRET: ${MESH_SECRET:?set MESH_SECRET, it signs every envelope between agents}
+    ports: ["8803:8803"]
+    volumes: ["triage-data:/data"]
+    depends_on: {investigator: {condition: service_healthy}}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8803/healthz', timeout=2)"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  investigator-data:
+  triage-data:
