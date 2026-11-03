@@ -8,6 +8,8 @@ reading: every claim below is either cited to a shipped design doc or measured o
 **Start here:** [`RAMPUP.md`](RAMPUP.md) (full structure) → [`docs/notes/STUDY-GUIDE.md`](docs/notes/STUDY-GUIDE.md)
 (single file to follow for daily learning, revision, and interview prep).
 
+**Job-search plan (Nov 2026):** [`career/`](career/) — skill priorities, 14-day plan, interview kit, and links to the other skill repos.
+
 ---
 
 ## What's built
