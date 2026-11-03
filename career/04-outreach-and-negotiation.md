@@ -20,7 +20,7 @@ Sub-band role:
 
 ## 5. LinkedIn
 - **Open to Work:** recruiters only (NOT the public banner).
-- **Headline** (change it over a few days, not overnight): `Senior UI Engineer II · Frontend Architecture for AI Products (React, Next.js, RAG, MCP) · AWS`
+- **Headline** (change it over a few days, not overnight): `Senior Software Engineer · Frontend Architecture for AI Products (React, Next.js, RAG, MCP) · AWS`
 - **About:**
 > I build fast frontends for AI products. At Couchbase I work on the Capella cloud console: I led a Core Web Vitals programme that cut LCP from 22s+ to 6–7s, and I build AI search and MCP tooling on vector + full-text search. I also own Go backend work when a feature needs it.
 > I care about proving AI features work: my public Agent Console and eval harness (github.com/aashishGitHub/AI) runs a golden dataset, an LLM-as-judge and a CI gate that fails the build on regressions.
