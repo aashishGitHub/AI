@@ -3,6 +3,8 @@
 The hub. One lane: **frontend architecture + AI product + performance**. Fullstack widens the funnel; forward-deployed engineering (FDE) is a 20–25% side lane.
 Source plan: [`00-source-plan-14-day.md`](00-source-plan-14-day.md).
 
+**AI + Frontend QnA pack (self-contained, no Claude needed):** [`../interviews/ai-frontend-role/`](../interviews/ai-frontend-role/README.md) — day-by-day use in [`00-HOW-TO-PREPARE.md`](../interviews/ai-frontend-role/00-HOW-TO-PREPARE.md).
+
 ## Where each skill lives
 | Priority | Skill | Repo / file | Status |
 |---|---|---|---|

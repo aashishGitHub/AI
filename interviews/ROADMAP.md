@@ -5,6 +5,8 @@
 
 ---
 
+> **AI + Frontend role prep pack (Nov 2026):** [`ai-frontend-role/`](ai-frontend-role/README.md) — start with [`00-HOW-TO-PREPARE.md`](ai-frontend-role/00-HOW-TO-PREPARE.md).
+
 ## 📊 Dashboard
 
 | Metric | Count |
