@@ -18,9 +18,9 @@ Source plan: [`00-source-plan-14-day.md`](00-source-plan-14-day.md).
 | P2 | RAG / hybrid search / vector DBs | [`../interviews/rag-hybrid-search/`](../interviews/rag-hybrid-search/) · [`../interviews/vector-databases/`](../interviews/vector-databases/) | 🟡 |
 | P2 | AI-native UI (streaming, tool approvals) | [`../fe-hands-on/`](../fe-hands-on/) | 🟡 streaming done |
 | P2 | Design systems / a11y | [DesignSystems/PLAN.md](https://github.com/aashishGitHub/DesignSystems/blob/main/PLAN.md) | ☐ |
-| P3 | AWS (SAA level) | [AWS-Cloud-tech/PLAN.md](https://github.com/aashishGitHub/AWS-Cloud-tech/blob/main/PLAN.md) | ☐ |
+| P3 | AWS (SAA level) | [AWS-Cloud-tech/PLAN.md](https://github.com/aashishGitHub/AWS-Cloud-tech/blob/main/PLAN.md) · [quick-interview/](https://github.com/aashishGitHub/AWS-Cloud-tech/tree/main/quick-interview) | ☐ |
 | P3 | Go breadth | [GolangExercise/PLAN.md](https://github.com/aashishGitHub/GolangExercise/blob/main/PLAN.md) | ☐ |
-| P3 | Java / Spring breadth | [Java/PLAN.md](https://github.com/aashishGitHub/Java/blob/main/PLAN.md) | ✅ QnA exists |
+| P3 | Java / Spring breadth | [Java/PLAN.md](https://github.com/aashishGitHub/Java/blob/main/PLAN.md) · [quick-interview/](https://github.com/aashishGitHub/Java/tree/main/quick-interview) | ✅ QnA exists |
 
 Resources: **Udemy** (courses updated 2025+ only) · **DesignGurus** · **free Claude / Gemini** (prompts in [`06-free-ai-prompts.md`](06-free-ai-prompts.md)) · official docs (react.dev, nextjs.org, web.dev).
 
